@@ -60,3 +60,57 @@ Full paths:
 /Volumes/Anisotope/Music/Processor/Other Music/Waits, Tom/1983-Swordfishtrombones/[2009-XE-12_ Vinyl-Island-0042284246910-042284246910]/04-15-Johnsburg, Illinois.dsf
 /Volumes/Anisotope/Music/Processor/Incoming/[NOT IN MB]/Chico Hamilton - Man From Two Worlds_R2R_DSD_Stig/A1.Man from Two Worlds.dsf
 ```
+
+## Benchmarks
+
+### Synthetic Decode (`TestBenchmarkDecode`)
+
+Benchmarks the DSD-to-PCM pipeline with synthetic data across DSD64, DSD128, and DSD256 rates. Skipped in `-short` mode.
+
+```bash
+cd tests && go test -run TestBenchmarkDecode -count=1 -v
+```
+
+- **Rates:** DSD64 (2.8 MHz), DSD128 (5.6 MHz), DSD256 (11.2 MHz)
+- **Duration:** 10 seconds per rate (stereo)
+- **Decoder:** saprobe (pipeline only, no container overhead)
+- **Iterations:** 10 per configuration
+- **Statistics:** median, mean, stddev, min, max
+
+| Rate | DSD Data | saprobe | Realtime Factor |
+|------|----------|---------|-----------------|
+| DSD64 | 6.7 MB | 61ms | 164x |
+| DSD128 | 13.5 MB | 605ms | 16.5x |
+| DSD256 | 26.9 MB | 1.69s | 5.9x |
+
+DSD64 is comfortably fast. DSD128 and DSD256 are progressively slower due to the multi-stage halfband decimation chain (DSD128 adds one stage, DSD256 adds two).
+
+### Real Files (`TestBenchmarkDecodeFile`)
+
+Benchmarks full DSD-to-PCM decoding (container decode + pipeline) against ffmpeg. 10 iterations, median times. Skipped in `-short` mode.
+
+```bash
+BENCH_FILE='/path/to/file.dsf' go test ./tests/ -timeout 20m -run TestBenchmarkDecodeFile -count=1 -v
+```
+
+Reference files selected for variety in container format and duration. All files are DSD128 (5,644,800 Hz), stereo.
+Decode times are median over 10 iterations.
+Ratio column shows saprobe time relative to ffmpeg (>1x = saprobe slower).
+
+| File | Container | Duration | DSD Data | saprobe | ffmpeg | vs ffmpeg | Character |
+|------|-----------|----------|----------|---------|--------|-----------|-----------|
+| Dolphy — Eclipse | DFF | 2:46 | 223.5 MB | 10.622s | 1.828s | 5.8x | Chamber jazz quartet, 1982 OJC vinyl |
+| Dolphy — The Baron | DFF | 2:57 | 238.8 MB | 11.24s | 1.956s | 5.7x | Chamber jazz quartet, 1982 OJC vinyl |
+| Hamilton — Man from Two Worlds | DSF | 6:04 | 491.0 MB | 23.036s | 4.766s | 4.8x | Jazz quintet, reel-to-reel DSD |
+| Dolphy — Out There | DFF | 6:57 | 561.7 MB | 26.743s | 4.951s | 5.4x | Chamber jazz quartet, 1982 OJC vinyl |
+
+Saprobe is ~4.8-5.8x slower than ffmpeg. ffmpeg uses SIMD-optimized C for DSD-to-PCM conversion. The ratio is consistent across both container formats (DSF/DFF) and file durations.
+
+Full paths:
+
+```
+/Volumes/Anisotope/Music/Processor/Dolphy/1-miss_some/Dolphy, Eric/1961-Out There/[1982-US-12_ Vinyl-New Jazz; Prestige; Original Jazz Classics-NJ-8252; OJC-023-]/04-07-Eclipse.dff
+/Volumes/Anisotope/Music/Processor/Dolphy/1-miss_some/Dolphy, Eric/1961-Out There/[1982-US-12_ Vinyl-New Jazz; Prestige; Original Jazz Classics-NJ-8252; OJC-023-]/03-07-The Baron.dff
+/Volumes/Anisotope/Music/Processor/Incoming/[NOT IN MB]/Chico Hamilton - Man From Two Worlds_R2R_DSD_Stig/A1.Man from Two Worlds.dsf
+/Volumes/Anisotope/Music/Processor/Dolphy/1-miss_some/Dolphy, Eric/1961-Out There/[1982-US-12_ Vinyl-New Jazz; Prestige; Original Jazz Classics-NJ-8252; OJC-023-]/01-07-Out There.dff
+```

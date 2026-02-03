@@ -65,9 +65,11 @@ const (
 	dsdPeakTolerance = 0.10
 
 	// dsdSampleCountTolerance is the maximum allowed difference in output sample
-	// count between saprobe and ffmpeg. A difference of 1 sample can occur from
-	// rounding in decimation chains with non-power-of-2 ratios.
-	dsdSampleCountTolerance = 2
+	// count between saprobe and ffmpeg. A difference of 1 sample occurs when the
+	// DSD byte count per channel is odd: saprobe's halfband uses floor decimation
+	// (discards the unpaired trailing sample) while ffmpeg's resampler uses ceiling
+	// decimation (zero-pads to produce one extra sample). See docs/IMPLEMENTATION.md.
+	dsdSampleCountTolerance = 1
 
 	// dsdBytesPerFloat32 is the size of a float32 sample in bytes.
 	dsdBytesPerFloat32 = 4
