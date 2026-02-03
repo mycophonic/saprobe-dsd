@@ -1,0 +1,59 @@
+# saprobe-dsd
+
+Pure Go DSD (Direct Stream Digital) decoder supporting DSF and DSDIFF (DFF) container formats
+with DSD-to-PCM conversion at all standard rate combinations.
+
+## Containers
+
+| Format | Extension | Bit order | Status |
+|--------|-----------|-----------|--------|
+| DSF    | `.dsf`    | LSB-first | Supported |
+| DSDIFF | `.dff`    | MSB-first | Supported (uncompressed only) |
+
+DST-compressed DSDIFF files are not supported.
+
+## Rate matrix
+
+All 25 combinations of DSD input rate and PCM output rate are supported:
+
+| Input \ Output | 44.1 kHz | 88.2 kHz | 176.4 kHz | 352.8 kHz | 705.6 kHz |
+|----------------|----------|----------|-----------|-----------|-----------|
+| DSD64 (2.8 MHz)   | 64:1 | 32:1 | 16:1 | 8:1 | 4:1 |
+| DSD128 (5.6 MHz)  | 128:1 | 64:1 | 32:1 | 16:1 | 8:1 |
+| DSD256 (11.3 MHz) | 256:1 | 128:1 | 64:1 | 32:1 | 16:1 |
+| DSD512 (22.6 MHz) | 512:1 | 256:1 | 128:1 | 64:1 | 32:1 |
+| DSD1024 (45.2 MHz)| 1024:1 | 512:1 | 256:1 | 128:1 | 64:1 |
+
+## Architecture
+
+- **Stage 1:** Byte-level 8:1 decimation using Gesemann's 96-tap symmetric FIR filter
+  with precomputed lookup tables (ported from dsd2pcm, BSD-2-Clause).
+  A 4:1 bit-level variant handles the DSD64→705.6 kHz edge case.
+- **Stage 2:** Cascaded halfband 2:1 decimation (Parks-McClellan FIR).
+- **Noise shaping:** Optional second-order IIR for 16-bit quantization (135 dB dynamic range below 30 kHz).
+
+## Usage
+
+```go
+import dsd "github.com/mycophonic/saprobe-dsd"
+
+// Parse a DSF file.
+channels, format, err := dsd.DecodeDSF(reader)
+
+// Parse a DFF file.
+channels, format, err := dsd.DecodeDFF(reader)
+
+// Convert DSD to PCM.
+pipe, err := dsd.NewPipeline(dsd.DSD64, dsd.Rate44100)
+dst := make([]float32, pipe.OutputSamples(len(src)))
+n := pipe.Process(src, format.BitOrder == dsd.LSBFirst, dst)
+```
+
+## Dependencies
+
+Zero. Pure Go, no CGO, no third-party dependencies.
+
+## Documentation
+
+- [Testing](docs/QA.md)
+- [DAC format support research](docs/RESEARCH.md)

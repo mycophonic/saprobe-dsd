@@ -1,0 +1,19 @@
+module github.com/mycophonic/saprobe-dsd/tests
+
+go 1.25.6
+
+replace github.com/mycophonic/saprobe-dsd => ../
+
+require (
+	github.com/mycophonic/agar v0.1.3
+	github.com/mycophonic/saprobe-dsd v0.0.0-00010101000000-000000000000
+)
+
+require (
+	github.com/containerd/nerdctl/mod/tigron v0.0.0-20260121031139-a630881afd01 // indirect
+	github.com/creack/pty v1.1.24 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
+)
