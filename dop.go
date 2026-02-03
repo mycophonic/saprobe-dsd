@@ -47,9 +47,9 @@ func (e *DoPEncoder) Reset() {
 
 // Encode packs per-channel DSD data into interleaved 24-bit LE DoP frames.
 //
-// All channel slices must have equal length, and that length must be even
-// (each DoP frame consumes 2 DSD bytes). The marker alternation state is
-// preserved across calls for streaming.
+// All channel slices must have equal length. When the length is odd, the final
+// byte is paired with a DSD silence pad byte (0x69) to complete the last frame.
+// The marker alternation state is preserved across calls for streaming.
 //
 // dst must be at least [DoPOutputSize](len(channels[0]), len(channels)) bytes.
 // Returns the number of bytes written to dst.
@@ -77,7 +77,7 @@ func DoPRate(dsdRate InputRate) (int, error) {
 // will produce for the given number of DSD bytes per channel and channel count.
 //
 // Each pair of DSD bytes produces one DoP frame (3 bytes) per channel.
-// dsdBytes must be even.
+// When dsdBytes is odd, the final byte is paired with a DSD silence pad byte.
 func DoPOutputSize(dsdBytes, channels int) int {
 	return intdsd.OutputSize(dsdBytes, channels)
 }

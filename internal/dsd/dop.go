@@ -35,6 +35,10 @@ const bytesPerDoPFrame = 3
 // dsdBytesPerDoPFrame is how many DSD bytes each DoP frame consumes.
 const dsdBytesPerDoPFrame = 2
 
+// dsdSilenceByte is the DSD idle pattern (alternating 1/0 bits) in MSB-first order.
+// Used to pad the final DoP frame when the input has an odd number of DSD bytes.
+const dsdSilenceByte = 0x69
+
 // ErrDoPUnsupportedRate indicates a DSD rate that cannot be transported via DoP.
 var ErrDoPUnsupportedRate = errors.New("dop: DSD rate not supported (DSD512+ exceeds DoP transport capacity)")
 
@@ -98,16 +102,18 @@ func (e *DoPEncoder) Reset() {
 // for the given number of DSD bytes per channel and channel count.
 //
 // Each pair of DSD bytes produces one DoP frame (3 bytes) per channel.
-// dsdBytes must be even.
+// When dsdBytes is odd, the final byte is paired with a DSD silence pad byte (0x69).
 func OutputSize(dsdBytes, channels int) int {
-	return (dsdBytes / dsdBytesPerDoPFrame) * bytesPerDoPFrame * channels
+	frames := (dsdBytes + 1) / dsdBytesPerDoPFrame
+
+	return frames * bytesPerDoPFrame * channels
 }
 
 // Encode packs per-channel DSD data into interleaved 24-bit LE DoP frames.
 //
-// All channel slices must have equal length, and that length must be even
-// (each DoP frame consumes 2 DSD bytes). The marker alternation state is
-// preserved across calls for streaming.
+// All channel slices must have equal length. When the length is odd, the final
+// byte is paired with a DSD silence pad byte (0x69) to complete the last frame.
+// The marker alternation state is preserved across calls for streaming.
 //
 // dst must be at least [OutputSize](len(channels[0]), len(channels)) bytes.
 // Returns the number of bytes written to dst.
@@ -124,10 +130,6 @@ func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 		}
 	}
 
-	if chLen%dsdBytesPerDoPFrame != 0 {
-		return 0, fmt.Errorf("%w: DSD byte count must be even (got %d)", ErrDoPInvalidInput, chLen)
-	}
-
 	needed := OutputSize(chLen, len(channels))
 	if len(dst) < needed {
 		return 0, fmt.Errorf("%w: dst too small (need %d, got %d)", ErrDoPInvalidInput, needed, len(dst))
@@ -137,14 +139,26 @@ func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 	pos := 0
 
 	// Process DSD bytes in pairs: each pair → one DoP frame per channel.
+	// When chLen is odd, the last byte is paired with DSD silence (0x69).
 	for srcIdx := 0; srcIdx < chLen; srcIdx += dsdBytesPerDoPFrame {
-		for ch := range nch {
-			dsdHigh := channels[ch][srcIdx]
-			dsdLow := channels[ch][srcIdx+1]
+		padLow := srcIdx+1 >= chLen // odd length: last byte needs silence pad
+
+		for chIdx := range nch {
+			dsdHigh := channels[chIdx][srcIdx]
 
 			if e.lsbFirst {
 				dsdHigh = bitReverse[dsdHigh]
-				dsdLow = bitReverse[dsdLow]
+			}
+
+			var dsdLow byte
+			if padLow {
+				// Pad with DSD silence in MSB-first (DoP native order), skip bit-reversal.
+				dsdLow = dsdSilenceByte
+			} else {
+				dsdLow = channels[chIdx][srcIdx+1]
+				if e.lsbFirst {
+					dsdLow = bitReverse[dsdLow]
+				}
 			}
 
 			// 24-bit little-endian: [low byte] [high byte] [marker]

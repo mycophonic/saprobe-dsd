@@ -242,22 +242,64 @@ func TestDoPInterleaving(t *testing.T) {
 }
 
 // TestDoPOddLength verifies that an odd number of DSD bytes per channel
-// produces an error.
+// is padded with DSD silence (0x69) in the final DoP frame.
 func TestDoPOddLength(t *testing.T) {
 	t.Parallel()
 
 	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
 
+	// 3 DSD bytes → 2 frames: [0xAA,0x55] and [0xBB,pad].
 	src := [][]byte{{0xAA, 0x55, 0xBB}}
-	dst := make([]byte, 100)
+	dst := make([]byte, dsd.DoPOutputSize(3, 1))
 
-	_, err := enc.Encode(src, dst)
-	if err == nil {
-		t.Fatal("expected error for odd DSD byte count")
+	n, err := enc.Encode(src, dst)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
 	}
 
-	if !errors.Is(err, dsd.ErrDoP) {
-		t.Errorf("error %v does not wrap ErrDoP", err)
+	// OutputSize for 3 bytes mono = 2 frames × 3 bytes = 6.
+	if n != 6 {
+		t.Fatalf("Encode returned %d bytes, want 6", n)
+	}
+
+	// Frame 0: [0x55, 0xAA, marker] — normal pair.
+	if dst[0] != 0x55 || dst[1] != 0xAA {
+		t.Errorf("frame 0: data = [0x%02X, 0x%02X], want [0x55, 0xAA]", dst[0], dst[1])
+	}
+
+	// Frame 1: [0x69, 0xBB, marker] — 0xBB is the real byte, 0x69 is DSD silence pad.
+	if dst[3] != 0x69 {
+		t.Errorf("frame 1 low byte: got 0x%02X, want 0x69 (DSD silence pad)", dst[3])
+	}
+
+	if dst[4] != 0xBB {
+		t.Errorf("frame 1 high byte: got 0x%02X, want 0xBB", dst[4])
+	}
+}
+
+// TestDoPOddLengthLSBFirst verifies that the DSD silence pad byte is written
+// in MSB-first (DoP native order) even when input is LSB-first.
+func TestDoPOddLengthLSBFirst(t *testing.T) {
+	t.Parallel()
+
+	enc := dsd.NewDoPEncoder(dsd.LSBFirst)
+
+	// 1 DSD byte → 1 frame: [0xAA, pad].
+	src := [][]byte{{0xAA}}
+	dst := make([]byte, dsd.DoPOutputSize(1, 1))
+
+	n, err := enc.Encode(src, dst)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	if n != 3 {
+		t.Fatalf("Encode returned %d bytes, want 3", n)
+	}
+
+	// Pad byte should be 0x69 (DSD silence in MSB-first, no reversal applied).
+	if dst[0] != 0x69 {
+		t.Errorf("pad byte: got 0x%02X, want 0x69", dst[0])
 	}
 }
 
@@ -343,12 +385,16 @@ func TestDoPOutputSize(t *testing.T) {
 		channels int
 		want     int
 	}{
-		{2, 1, 3},    // 1 frame, mono
-		{2, 2, 6},    // 1 frame, stereo
-		{4, 1, 6},    // 2 frames, mono
-		{4, 2, 12},   // 2 frames, stereo
+		{2, 1, 3},     // 1 frame, mono
+		{2, 2, 6},     // 1 frame, stereo
+		{4, 1, 6},     // 2 frames, mono
+		{4, 2, 12},    // 2 frames, stereo
 		{100, 6, 900}, // 50 frames, 6ch
-		{0, 1, 0},    // no input
+		{0, 1, 0},     // no input
+		{1, 1, 3},     // 1 byte odd → 1 frame (padded), mono
+		{3, 1, 6},     // 3 bytes odd → 2 frames (last padded), mono
+		{3, 2, 12},    // 3 bytes odd → 2 frames (last padded), stereo
+		{5, 1, 9},     // 5 bytes odd → 3 frames (last padded), mono
 	}
 
 	for _, tt := range tests {
