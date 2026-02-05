@@ -37,16 +37,13 @@ All 25 combinations of DSD input rate and PCM output rate are supported:
 ```go
 import dsd "github.com/mycophonic/saprobe-dsd"
 
-// Parse a DSF file.
-channels, format, err := dsd.DecodeDSF(reader)
+// Streaming DSD-to-PCM decode (DSF or DFF auto-detected).
+dec, err := dsd.NewDecoder(reader, dsd.Rate352800)
+pcm, err := io.ReadAll(dec)
+fmt := dec.Format() // PCMFormat{SampleRate, BitDepth, Channels}
 
-// Parse a DFF file.
-channels, format, err := dsd.DecodeDFF(reader)
-
-// Convert DSD to PCM.
-pipe, err := dsd.NewPipeline(dsd.DSD64, dsd.Rate44100)
-dst := make([]float32, pipe.OutputSamples(len(src)))
-n := pipe.Process(src, format.BitOrder == dsd.LSBFirst, dst)
+// Reuse decoder for multiple files (zero-alloc when format matches).
+err = dec.Reset(nextReader, dsd.Rate352800)
 ```
 
 ## Dependencies

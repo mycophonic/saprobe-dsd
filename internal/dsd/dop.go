@@ -76,20 +76,29 @@ type DoPFormat struct {
 //
 // It is stateful: the marker alternation carries across successive Encode calls,
 // enabling streaming use. Each Encode call consumes an equal number of DSD bytes
-// from every channel and writes interleaved 24-bit little-endian PCM frames.
+// from every channel and writes interleaved little-endian PCM frames.
+//
+// When containerBytes > 3 (e.g. 4 for 32-bit), Encode writes padded frames
+// directly with high-aligned DoP data: [0x00 padding..., dsdLow, dsdHigh, marker].
+// This eliminates the need for a separate padding pass.
 type DoPEncoder struct {
-	marker   byte
-	lsbFirst bool
+	marker         byte
+	lsbFirst       bool
+	containerBytes int // output bytes per sample; 0 or 3 = 24-bit, 4 = 32-bit, etc.
 }
 
-// NewDoPEncoder creates a DoP encoder for the given bit ordering.
+// NewDoPEncoder creates a DoP encoder for the given bit ordering and container size.
 // LSB-first data (DSF) is automatically bit-reversed to MSB-first for DoP packing.
-func NewDoPEncoder(bitOrder format.BitOrder) *DoPEncoder {
+//
+// containerBytes sets the output sample width. Use 0 or 3 for standard 24-bit DoP
+// frames. Use 4 for 32-bit containers (the encoder writes high-aligned padded frames).
+func NewDoPEncoder(bitOrder format.BitOrder, containerBytes int) *DoPEncoder {
 	initTables() // ensure bitReverse table is populated
 
 	return &DoPEncoder{
-		marker:   dopMarkerA,
-		lsbFirst: bitOrder == format.LSBFirst,
+		marker:         dopMarkerA,
+		lsbFirst:       bitOrder == format.LSBFirst,
+		containerBytes: containerBytes,
 	}
 }
 
@@ -99,23 +108,47 @@ func (e *DoPEncoder) Reset() {
 }
 
 // OutputSize returns the number of output bytes that Encode will produce
-// for the given number of DSD bytes per channel and channel count.
+// for the given number of DSD bytes per channel, channel count, and container size.
 //
-// Each pair of DSD bytes produces one DoP frame (3 bytes) per channel.
+// Each pair of DSD bytes produces one DoP frame per channel. containerBytes sets
+// the output sample width (0 or 3 = 24-bit, 4 = 32-bit, etc.).
 // When dsdBytes is odd, the final byte is paired with a DSD silence pad byte (0x69).
-func OutputSize(dsdBytes, channels int) int {
+func OutputSize(dsdBytes, channels, containerBytes int) int {
 	frames := (dsdBytes + 1) / dsdBytesPerDoPFrame
+	bpf := effectiveContainerBytes(containerBytes)
 
-	return frames * bytesPerDoPFrame * channels
+	return frames * bpf * channels
 }
 
-// Encode packs per-channel DSD data into interleaved 24-bit LE DoP frames.
+// Consumed converts output bytes written by Encode back to DSD bytes
+// consumed per channel. This is the inverse of OutputSize.
+func Consumed(outputBytes, channels, containerBytes int) int {
+	bpf := effectiveContainerBytes(containerBytes)
+	frames := outputBytes / (bpf * channels)
+
+	return frames * dsdBytesPerDoPFrame
+}
+
+// effectiveContainerBytes returns the actual bytes per sample, defaulting
+// to bytesPerDoPFrame (3) when containerBytes is 0 or less than 3.
+func effectiveContainerBytes(containerBytes int) int {
+	if containerBytes > bytesPerDoPFrame {
+		return containerBytes
+	}
+
+	return bytesPerDoPFrame
+}
+
+// Encode packs per-channel DSD data into interleaved DoP frames.
 //
 // All channel slices must have equal length. When the length is odd, the final
 // byte is paired with a DSD silence pad byte (0x69) to complete the last frame.
 // The marker alternation state is preserved across calls for streaming.
 //
-// dst must be at least [OutputSize](len(channels[0]), len(channels)) bytes.
+// When the encoder's containerBytes > 3, output frames are padded to the container
+// size with high-aligned DoP data: [0x00 padding..., dsdLow, dsdHigh, marker].
+//
+// dst must be at least [OutputSize](len(channels[0]), len(channels), containerBytes) bytes.
 // Returns the number of bytes written to dst.
 func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 	if len(channels) == 0 {
@@ -130,12 +163,15 @@ func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 		}
 	}
 
-	needed := OutputSize(chLen, len(channels))
+	bpf := effectiveContainerBytes(e.containerBytes)
+	needed := OutputSize(chLen, len(channels), e.containerBytes)
+
 	if len(dst) < needed {
 		return 0, fmt.Errorf("%w: dst too small (need %d, got %d)", ErrDoPInvalidInput, needed, len(dst))
 	}
 
 	nch := len(channels)
+	pad := bpf - bytesPerDoPFrame // 0 for 24-bit, 1 for 32-bit
 	pos := 0
 
 	// Process DSD bytes in pairs: each pair → one DoP frame per channel.
@@ -161,12 +197,17 @@ func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 				}
 			}
 
-			// 24-bit little-endian: [low byte] [high byte] [marker]
-			dst[pos] = dsdLow
-			dst[pos+1] = dsdHigh
-			dst[pos+2] = e.marker
+			// Write padding bytes (zero) in LSBs for containers wider than 24 bits.
+			for j := range pad {
+				dst[pos+j] = 0
+			}
 
-			pos += bytesPerDoPFrame
+			// DoP frame (high-aligned in container): [dsdLow, dsdHigh, marker]
+			dst[pos+pad] = dsdLow
+			dst[pos+pad+1] = dsdHigh
+			dst[pos+pad+2] = e.marker
+
+			pos += bpf
 		}
 
 		// Alternate marker after each frame position (all channels share the same marker per frame).

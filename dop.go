@@ -29,15 +29,21 @@ type DoPFormat = intdsd.DoPFormat
 //
 // It is stateful: the marker alternation carries across successive Encode calls,
 // enabling streaming use. Each Encode call consumes an equal number of DSD bytes
-// from every channel and writes interleaved 24-bit little-endian PCM frames.
+// from every channel and writes interleaved little-endian PCM frames.
+//
+// When containerBytes > 3, output frames are padded to the container size with
+// high-aligned DoP data, eliminating the need for a separate padding pass.
 type DoPEncoder struct {
 	enc *intdsd.DoPEncoder
 }
 
-// NewDoPEncoder creates a DoP encoder for the given bit ordering.
+// NewDoPEncoder creates a DoP encoder for the given bit ordering and container size.
 // LSB-first data (DSF) is automatically bit-reversed to MSB-first for DoP packing.
-func NewDoPEncoder(bitOrder BitOrder) *DoPEncoder {
-	return &DoPEncoder{enc: intdsd.NewDoPEncoder(bitOrder)}
+//
+// containerBytes sets the output sample width. Use 0 or 3 for standard 24-bit DoP
+// frames. Use 4 for 32-bit containers (the encoder writes high-aligned padded frames).
+func NewDoPEncoder(bitOrder BitOrder, containerBytes int) *DoPEncoder {
+	return &DoPEncoder{enc: intdsd.NewDoPEncoder(bitOrder, containerBytes)}
 }
 
 // Reset restores the encoder to its initial state (marker = 0x05).
@@ -45,13 +51,13 @@ func (e *DoPEncoder) Reset() {
 	e.enc.Reset()
 }
 
-// Encode packs per-channel DSD data into interleaved 24-bit LE DoP frames.
+// Encode packs per-channel DSD data into interleaved DoP frames.
 //
 // All channel slices must have equal length. When the length is odd, the final
 // byte is paired with a DSD silence pad byte (0x69) to complete the last frame.
 // The marker alternation state is preserved across calls for streaming.
 //
-// dst must be at least [DoPOutputSize](len(channels[0]), len(channels)) bytes.
+// dst must be at least [DoPOutputSize](len(channels[0]), len(channels), containerBytes) bytes.
 // Returns the number of bytes written to dst.
 func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 	n, err := e.enc.Encode(channels, dst)
@@ -74,10 +80,18 @@ func DoPRate(dsdRate InputRate) (int, error) {
 }
 
 // DoPOutputSize returns the number of output bytes that [DoPEncoder.Encode]
-// will produce for the given number of DSD bytes per channel and channel count.
+// will produce for the given number of DSD bytes per channel, channel count,
+// and container size.
 //
-// Each pair of DSD bytes produces one DoP frame (3 bytes) per channel.
+// Each pair of DSD bytes produces one DoP frame per channel. containerBytes
+// sets the output sample width (0 or 3 = 24-bit, 4 = 32-bit, etc.).
 // When dsdBytes is odd, the final byte is paired with a DSD silence pad byte.
-func DoPOutputSize(dsdBytes, channels int) int {
-	return intdsd.OutputSize(dsdBytes, channels)
+func DoPOutputSize(dsdBytes, channels, containerBytes int) int {
+	return intdsd.OutputSize(dsdBytes, channels, containerBytes)
+}
+
+// DoPDSDConsumed converts output bytes written by [DoPEncoder.Encode] back
+// to DSD bytes consumed per channel. This is the inverse of [DoPOutputSize].
+func DoPDSDConsumed(outputBytes, channels, containerBytes int) int {
+	return intdsd.Consumed(outputBytes, channels, containerBytes)
 }

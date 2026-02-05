@@ -171,8 +171,8 @@ func renderDoP(dopPath string, file *os.File, path string) {
 		return
 	}
 
-	enc := dsd.NewDoPEncoder(dsd.BitOrder(dsdFmt.BitOrder))
-	outSize := dsd.DoPOutputSize(len(channels[0]), numCh)
+	enc := dsd.NewDoPEncoder(dsd.BitOrder(dsdFmt.BitOrder), 0)
+	outSize := dsd.DoPOutputSize(len(channels[0]), numCh, 0)
 	dst := make([]byte, outSize)
 
 	n, err := enc.Encode(channels, dst)

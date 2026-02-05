@@ -71,11 +71,11 @@ func TestDoPRate(t *testing.T) {
 func TestDoPMarkerAlternation(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	// 8 DSD bytes → 4 DoP frames (mono).
 	src := [][]byte{{0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55}}
-	dst := make([]byte, dsd.DoPOutputSize(len(src[0]), 1))
+	dst := make([]byte, dsd.DoPOutputSize(len(src[0]), 1, 0))
 
 	n, err := enc.Encode(src, dst)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestDoPMarkerAlternation(t *testing.T) {
 
 	// Second Encode call: marker should continue alternating.
 	src2 := [][]byte{{0xFF, 0x00}}
-	dst2 := make([]byte, dsd.DoPOutputSize(len(src2[0]), 1))
+	dst2 := make([]byte, dsd.DoPOutputSize(len(src2[0]), 1, 0))
 
 	_, err = enc.Encode(src2, dst2)
 	if err != nil {
@@ -120,11 +120,11 @@ func TestDoPBitReversal(t *testing.T) {
 	msbData := [][]byte{{0x2D, 0x96}}
 	lsbData := [][]byte{{0xB4, 0x69}}
 
-	msbEnc := dsd.NewDoPEncoder(dsd.MSBFirst)
-	lsbEnc := dsd.NewDoPEncoder(dsd.LSBFirst)
+	msbEnc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
+	lsbEnc := dsd.NewDoPEncoder(dsd.LSBFirst, 0)
 
-	msbOut := make([]byte, dsd.DoPOutputSize(2, 1))
-	lsbOut := make([]byte, dsd.DoPOutputSize(2, 1))
+	msbOut := make([]byte, dsd.DoPOutputSize(2, 1, 0))
+	lsbOut := make([]byte, dsd.DoPOutputSize(2, 1, 0))
 
 	_, err := msbEnc.Encode(msbData, msbOut)
 	if err != nil {
@@ -147,10 +147,10 @@ func TestDoPBitReversal(t *testing.T) {
 func TestDoPSilence(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	src := [][]byte{{0x69, 0x69, 0x69, 0x69}}
-	dst := make([]byte, dsd.DoPOutputSize(len(src[0]), 1))
+	dst := make([]byte, dsd.DoPOutputSize(len(src[0]), 1, 0))
 
 	n, err := enc.Encode(src, dst)
 	if err != nil {
@@ -178,10 +178,10 @@ func TestDoPRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	original := []byte{0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE}
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	src := [][]byte{original}
-	dst := make([]byte, dsd.DoPOutputSize(len(original), 1))
+	dst := make([]byte, dsd.DoPOutputSize(len(original), 1, 0))
 
 	_, err := enc.Encode(src, dst)
 	if err != nil {
@@ -208,13 +208,13 @@ func TestDoPRoundTrip(t *testing.T) {
 func TestDoPInterleaving(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	left := []byte{0xAA, 0x55}
 	right := []byte{0x11, 0x22}
 	src := [][]byte{left, right}
 
-	dst := make([]byte, dsd.DoPOutputSize(2, 2))
+	dst := make([]byte, dsd.DoPOutputSize(2, 2, 0))
 
 	n, err := enc.Encode(src, dst)
 	if err != nil {
@@ -247,11 +247,11 @@ func TestDoPInterleaving(t *testing.T) {
 func TestDoPOddLength(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	// 3 DSD bytes → 2 frames: [0xAA,0x55] and [0xBB,pad].
 	src := [][]byte{{0xAA, 0x55, 0xBB}}
-	dst := make([]byte, dsd.DoPOutputSize(3, 1))
+	dst := make([]byte, dsd.DoPOutputSize(3, 1, 0))
 
 	n, err := enc.Encode(src, dst)
 	if err != nil {
@@ -283,11 +283,11 @@ func TestDoPOddLength(t *testing.T) {
 func TestDoPOddLengthLSBFirst(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.LSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.LSBFirst, 0)
 
 	// 1 DSD byte → 1 frame: [0xAA, pad].
 	src := [][]byte{{0xAA}}
-	dst := make([]byte, dsd.DoPOutputSize(1, 1))
+	dst := make([]byte, dsd.DoPOutputSize(1, 1, 0))
 
 	n, err := enc.Encode(src, dst)
 	if err != nil {
@@ -308,7 +308,7 @@ func TestDoPOddLengthLSBFirst(t *testing.T) {
 func TestDoPNoChannels(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	_, err := enc.Encode(nil, nil)
 	if err == nil {
@@ -321,7 +321,7 @@ func TestDoPNoChannels(t *testing.T) {
 func TestDoPChannelLengthMismatch(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	src := [][]byte{{0xAA, 0x55}, {0xBB}}
 	dst := make([]byte, 100)
@@ -336,7 +336,7 @@ func TestDoPChannelLengthMismatch(t *testing.T) {
 func TestDoPDstTooSmall(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	src := [][]byte{{0xAA, 0x55}}
 	dst := make([]byte, 1) // needs 3
@@ -352,7 +352,7 @@ func TestDoPDstTooSmall(t *testing.T) {
 func TestDoPStreamingContinuity(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	// 10 calls of 2 bytes each → 10 frames total.
 	chunk := [][]byte{{0x69, 0x69}}
@@ -399,9 +399,9 @@ func TestDoPOutputSize(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := dsd.DoPOutputSize(tt.dsdBytes, tt.channels)
+		got := dsd.DoPOutputSize(tt.dsdBytes, tt.channels, 0)
 		if got != tt.want {
-			t.Errorf("DoPOutputSize(%d, %d) = %d, want %d", tt.dsdBytes, tt.channels, got, tt.want)
+			t.Errorf("DoPOutputSize(%d, %d, 0) = %d, want %d", tt.dsdBytes, tt.channels, got, tt.want)
 		}
 	}
 }
@@ -410,7 +410,7 @@ func TestDoPOutputSize(t *testing.T) {
 func TestDoPReset(t *testing.T) {
 	t.Parallel()
 
-	enc := dsd.NewDoPEncoder(dsd.MSBFirst)
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 0)
 
 	// Encode one frame to advance marker to 0xFA.
 	src := [][]byte{{0x69, 0x69}}
@@ -435,5 +435,167 @@ func TestDoPReset(t *testing.T) {
 
 	if dst[2] != 0x05 {
 		t.Errorf("after Reset: marker = 0x%02X, want 0x05", dst[2])
+	}
+}
+
+// TestDoPContainer32Bit verifies that containerBytes=4 produces high-aligned
+// 32-bit output: [0x00, dsdLow, dsdHigh, marker] per sample.
+func TestDoPContainer32Bit(t *testing.T) {
+	t.Parallel()
+
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 4)
+
+	// 2 DSD bytes per channel → 1 DoP frame, mono.
+	src := [][]byte{{0xAA, 0x55}}
+	dst := make([]byte, dsd.DoPOutputSize(2, 1, 4))
+
+	n, err := enc.Encode(src, dst)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	// 1 frame × 4 bytes × 1 channel = 4.
+	if n != 4 {
+		t.Fatalf("Encode returned %d bytes, want 4", n)
+	}
+
+	// [0x00, dsdLow(0x55), dsdHigh(0xAA), marker(0x05)]
+	if dst[0] != 0x00 {
+		t.Errorf("pad byte: got 0x%02X, want 0x00", dst[0])
+	}
+
+	if dst[1] != 0x55 {
+		t.Errorf("dsdLow: got 0x%02X, want 0x55", dst[1])
+	}
+
+	if dst[2] != 0xAA {
+		t.Errorf("dsdHigh: got 0x%02X, want 0xAA", dst[2])
+	}
+
+	if dst[3] != 0x05 {
+		t.Errorf("marker: got 0x%02X, want 0x05", dst[3])
+	}
+}
+
+// TestDoPContainer32BitStereo verifies 32-bit container with stereo interleaving.
+func TestDoPContainer32BitStereo(t *testing.T) {
+	t.Parallel()
+
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 4)
+
+	left := []byte{0xAA, 0x55}
+	right := []byte{0x11, 0x22}
+	src := [][]byte{left, right}
+
+	dst := make([]byte, dsd.DoPOutputSize(2, 2, 4))
+
+	n, err := enc.Encode(src, dst)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	// 1 frame × 4 bytes × 2 channels = 8.
+	if n != 8 {
+		t.Fatalf("Encode returned %d bytes, want 8", n)
+	}
+
+	// Left: [0x00, 0x55, 0xAA, 0x05]
+	if dst[0] != 0x00 || dst[1] != 0x55 || dst[2] != 0xAA || dst[3] != 0x05 {
+		t.Errorf("left: [0x%02X, 0x%02X, 0x%02X, 0x%02X], want [0x00, 0x55, 0xAA, 0x05]",
+			dst[0], dst[1], dst[2], dst[3])
+	}
+
+	// Right: [0x00, 0x22, 0x11, 0x05]
+	if dst[4] != 0x00 || dst[5] != 0x22 || dst[6] != 0x11 || dst[7] != 0x05 {
+		t.Errorf("right: [0x%02X, 0x%02X, 0x%02X, 0x%02X], want [0x00, 0x22, 0x11, 0x05]",
+			dst[4], dst[5], dst[6], dst[7])
+	}
+}
+
+// TestDoPOutputSizeContainer32 verifies output size with 32-bit container.
+func TestDoPOutputSizeContainer32(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		dsdBytes int
+		channels int
+		want     int
+	}{
+		{2, 1, 4},     // 1 frame, mono, 4 bytes
+		{2, 2, 8},     // 1 frame, stereo, 8 bytes
+		{4, 1, 8},     // 2 frames, mono
+		{4, 2, 16},    // 2 frames, stereo
+		{100, 6, 1200}, // 50 frames, 6ch
+		{1, 1, 4},     // 1 byte odd → 1 frame (padded), mono
+		{3, 1, 8},     // 3 bytes odd → 2 frames, mono
+	}
+
+	for _, tt := range tests {
+		got := dsd.DoPOutputSize(tt.dsdBytes, tt.channels, 4)
+		if got != tt.want {
+			t.Errorf("DoPOutputSize(%d, %d, 4) = %d, want %d", tt.dsdBytes, tt.channels, got, tt.want)
+		}
+	}
+}
+
+// TestDoPDSDConsumed verifies the inverse calculation from output bytes
+// back to DSD bytes consumed per channel.
+func TestDoPDSDConsumed(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		outputBytes    int
+		channels       int
+		containerBytes int
+		want           int
+	}{
+		{3, 1, 0, 2},    // 1 frame 24-bit mono → 2 DSD bytes
+		{6, 2, 0, 2},    // 1 frame 24-bit stereo → 2 DSD bytes per ch
+		{4, 1, 4, 2},    // 1 frame 32-bit mono → 2 DSD bytes
+		{8, 2, 4, 2},    // 1 frame 32-bit stereo → 2 DSD bytes per ch
+		{16, 2, 4, 4},   // 2 frames 32-bit stereo → 4 DSD bytes per ch
+		{3528, 2, 4, 882}, // 441 frames 32-bit stereo
+	}
+
+	for _, tt := range tests {
+		got := dsd.DoPDSDConsumed(tt.outputBytes, tt.channels, tt.containerBytes)
+		if got != tt.want {
+			t.Errorf("DoPDSDConsumed(%d, %d, %d) = %d, want %d",
+				tt.outputBytes, tt.channels, tt.containerBytes, got, tt.want)
+		}
+	}
+}
+
+// TestDoPContainer32OddLength verifies that odd-length input with 32-bit
+// container produces correctly padded frames.
+func TestDoPContainer32OddLength(t *testing.T) {
+	t.Parallel()
+
+	enc := dsd.NewDoPEncoder(dsd.MSBFirst, 4)
+
+	// 3 DSD bytes → 2 frames: [0xAA,0x55] and [0xBB,silence_pad].
+	src := [][]byte{{0xAA, 0x55, 0xBB}}
+	dst := make([]byte, dsd.DoPOutputSize(3, 1, 4))
+
+	n, err := enc.Encode(src, dst)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	// 2 frames × 4 bytes = 8.
+	if n != 8 {
+		t.Fatalf("Encode returned %d bytes, want 8", n)
+	}
+
+	// Frame 0: [0x00, 0x55, 0xAA, 0x05]
+	if dst[0] != 0x00 || dst[1] != 0x55 || dst[2] != 0xAA || dst[3] != 0x05 {
+		t.Errorf("frame 0: [0x%02X, 0x%02X, 0x%02X, 0x%02X], want [0x00, 0x55, 0xAA, 0x05]",
+			dst[0], dst[1], dst[2], dst[3])
+	}
+
+	// Frame 1: [0x00, 0x69(silence pad), 0xBB, 0xFA]
+	if dst[4] != 0x00 || dst[5] != 0x69 || dst[6] != 0xBB || dst[7] != 0xFA {
+		t.Errorf("frame 1: [0x%02X, 0x%02X, 0x%02X, 0x%02X], want [0x00, 0x69, 0xBB, 0xFA]",
+			dst[4], dst[5], dst[6], dst[7])
 	}
 }
