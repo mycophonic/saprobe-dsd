@@ -29,7 +29,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"os"
 
 	dsd "github.com/mycophonic/saprobe-dsd"
@@ -78,93 +77,41 @@ func run(outputFormat string, outRate dsd.OutputRate, inputPath string) int {
 
 	defer cleanup()
 
-	// Try DSF first, then DFF.
-	channels, dsdFmt, err := dsd.DecodeDSF(reader)
+	dec, err := dsd.NewDecoder(reader, outRate)
 	if err != nil {
-		// Rewind and try DFF.
-		if _, seekErr := reader.Seek(0, io.SeekStart); seekErr != nil {
-			fmt.Fprintf(os.Stderr, "seek error: %v\n", seekErr)
-
-			return 1
-		}
-
-		channels, dsdFmt, err = dsd.DecodeDFF(reader)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "decode: %v\n", err)
-
-			return 1
-		}
-	}
-
-	pcm, pcmFmt, err := convertToPCM(channels, dsdFmt, outRate)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "convert: %v\n", err)
+		fmt.Fprintf(os.Stderr, "decode: %v\n", err)
 
 		return 1
 	}
 
-	fmt.Fprintf(os.Stderr, "%d Hz, %d-bit, %d ch, %d bytes PCM\n",
-		pcmFmt.SampleRate, pcmFmt.BitDepth, pcmFmt.Channels, len(pcm))
+	pcmFmt := dec.Format()
+
+	fmt.Fprintf(os.Stderr, "%d Hz, %d-bit, %d ch\n",
+		pcmFmt.SampleRate, pcmFmt.BitDepth, pcmFmt.Channels)
 
 	if outputFormat == formatWAV {
-		err = writeWAV(os.Stdout, pcm, pcmFmt)
+		// WAV header requires total data size upfront.
+		pcm, err := io.ReadAll(dec)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "read: %v\n", err)
+
+			return 1
+		}
+
+		if err := writeWAV(os.Stdout, pcm, pcmFmt); err != nil {
+			fmt.Fprintf(os.Stderr, "write: %v\n", err)
+
+			return 1
+		}
 	} else {
-		_, err = os.Stdout.Write(pcm)
-	}
+		if _, err := io.Copy(os.Stdout, dec); err != nil {
+			fmt.Fprintf(os.Stderr, "write: %v\n", err)
 
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "write: %v\n", err)
-
-		return 1
+			return 1
+		}
 	}
 
 	return 0
-}
-
-//nolint:gosec // Integer conversions bounded by audio format constraints.
-func convertToPCM(channels [][]byte, dsdFmt dsd.DSDFormat, outRate dsd.OutputRate) ([]byte, dsd.PCMFormat, error) {
-	inputRate := dsd.InputRate(dsdFmt.SampleRate)
-	lsbFirst := dsdFmt.BitOrder == dsd.LSBFirst
-	channelCount := int(dsdFmt.Channels)
-
-	pipe, err := dsd.NewPipeline(inputRate, outRate)
-	if err != nil {
-		return nil, dsd.PCMFormat{}, fmt.Errorf("creating pipeline: %w", err)
-	}
-
-	// Process each channel.
-	outSamples := pipe.OutputSamples(len(channels[0]))
-	pcmChannels := make([][]float32, channelCount)
-
-	for channel := range channelCount {
-		pcmChannels[channel] = make([]float32, outSamples)
-
-		chPipe := pipe
-		if channel > 0 {
-			chPipe = pipe.Clone()
-		}
-
-		chPipe.Process(channels[channel], lsbFirst, pcmChannels[channel])
-	}
-
-	// Interleave to 32-bit float LE PCM bytes.
-	totalSamples := outSamples * channelCount
-	pcm := make([]byte, totalSamples*4) //nolint:mnd // 4 bytes per float32
-
-	for sample := range outSamples {
-		for channel := range channelCount {
-			offset := (sample*channelCount + channel) * 4
-			binary.LittleEndian.PutUint32(pcm[offset:], math.Float32bits(pcmChannels[channel][sample]))
-		}
-	}
-
-	pcmFmt := dsd.PCMFormat{
-		SampleRate: int(outRate),
-		BitDepth:   32,
-		Channels:   channelCount,
-	}
-
-	return pcm, pcmFmt, nil
 }
 
 // openInput returns a ReadSeeker for the given path, or buffers stdin when path is "-".

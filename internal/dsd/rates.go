@@ -28,6 +28,7 @@ const (
 	DSD256  InputRate = 11_289_600
 	DSD512  InputRate = 22_579_200
 	DSD1024 InputRate = 45_158_400
+	DSD2048 InputRate = 90_316_800
 )
 
 // String returns a human-readable label for the DSD rate.
@@ -43,6 +44,8 @@ func (r InputRate) String() string {
 		return "DSD512"
 	case DSD1024:
 		return "DSD1024"
+	case DSD2048:
+		return "DSD2048"
 	default:
 		return fmt.Sprintf("InputRate(%d)", int(r))
 	}

@@ -60,33 +60,66 @@ type dsfFmt struct {
 	blockSize    int   // bytes per channel per block.
 }
 
+// Header holds parsed DSF metadata. After ParseHeader returns, the reader is
+// positioned at the start of the DSD data payload.
+type Header struct {
+	Format    dfmt.DSDFormat
+	BlockSize int   // bytes per channel per block
+	DataSize  int64 // total DSD data bytes (all channels interleaved)
+}
+
+// ParseHeader reads DSF headers and positions the reader at the start of the
+// DSD data payload. Use this for streaming decoding without reading all data.
+func ParseHeader(reader io.ReadSeeker) (Header, error) {
+	if err := parseDSDChunk(reader); err != nil {
+		return Header{}, err
+	}
+
+	fmtInfo, err := parseFmtChunk(reader)
+	if err != nil {
+		return Header{}, err
+	}
+
+	dataSize, err := parseDataChunkHeader(reader)
+	if err != nil {
+		return Header{}, err
+	}
+
+	return Header{
+		Format: dfmt.DSDFormat{
+			SampleRate:        fmtInfo.sampleRate,
+			Channels:          uint(fmtInfo.channelCount), //nolint:gosec // channelCount validated > 0
+			SamplesPerChannel: fmtInfo.sampleCount,
+			BitOrder:          dfmt.LSBFirst,
+		},
+		BlockSize: fmtInfo.blockSize,
+		DataSize:  dataSize,
+	}, nil
+}
+
 // Decode reads a DSF file and returns per-channel raw DSD bytes.
 //
 // Each element of the returned slice contains the DSD data for one channel.
 // The bit ordering is LSB-first (as specified by the DSF format).
 func Decode(reader io.ReadSeeker) ([][]byte, dfmt.DSDFormat, error) {
-	var format dfmt.DSDFormat
-
-	if err := parseDSDChunk(reader); err != nil {
-		return nil, format, err
-	}
-
-	fmtInfo, err := parseFmtChunk(reader)
+	hdr, err := ParseHeader(reader)
 	if err != nil {
-		return nil, format, err
+		return nil, dfmt.DSDFormat{}, err
 	}
 
-	format.SampleRate = fmtInfo.sampleRate
-	format.Channels = uint(fmtInfo.channelCount) //nolint:gosec // channelCount validated > 0
-	format.SamplesPerChannel = fmtInfo.sampleCount
-	format.BitOrder = dfmt.LSBFirst
+	fmtInfo := dsfFmt{
+		channelCount: int(hdr.Format.Channels), //nolint:gosec // channelCount validated in ParseHeader
+		sampleRate:   hdr.Format.SampleRate,
+		sampleCount:  hdr.Format.SamplesPerChannel,
+		blockSize:    hdr.BlockSize,
+	}
 
-	channels, err := parseDataChunk(reader, fmtInfo)
+	channels, err := readAndDeinterleave(reader, hdr.DataSize, fmtInfo)
 	if err != nil {
-		return nil, format, err
+		return nil, dfmt.DSDFormat{}, err
 	}
 
-	return channels, format, nil
+	return channels, hdr.Format, nil
 }
 
 // parseDSDChunk reads and validates the 28-byte DSD header chunk.
@@ -177,21 +210,25 @@ func parseFmtChunk(reader io.ReadSeeker) (dsfFmt, error) {
 	}, nil
 }
 
-// parseDataChunk reads the data chunk and de-interleaves per-channel blocks.
-func parseDataChunk(reader io.ReadSeeker, info dsfFmt) ([][]byte, error) {
-	// Read chunk header: 4-byte ID + 8-byte size.
+// parseDataChunkHeader reads the data chunk header and returns the payload size.
+// The reader is positioned at the start of the DSD data payload on return.
+func parseDataChunkHeader(reader io.ReadSeeker) (int64, error) {
 	var header [chunkHeaderSize]byte
 	if _, err := io.ReadFull(reader, header[:]); err != nil {
-		return nil, fmt.Errorf("%w: reading data header: %w", ErrMissingData, err)
+		return 0, fmt.Errorf("%w: reading data header: %w", ErrMissingData, err)
 	}
 
 	if string(header[:4]) != dataChunkID {
-		return nil, fmt.Errorf("%w: expected \"data\", got %q", ErrMissingData, string(header[:4]))
+		return 0, fmt.Errorf("%w: expected \"data\", got %q", ErrMissingData, string(header[:4]))
 	}
 
 	chunkSize := binary.LittleEndian.Uint64(header[4:12])
-	dataSize := chunkSize - chunkHeaderSize
 
+	return int64(chunkSize - chunkHeaderSize), nil //nolint:gosec // DSF data sizes fit in int64
+}
+
+// readAndDeinterleave reads the DSD data payload and de-interleaves per-channel blocks.
+func readAndDeinterleave(reader io.ReadSeeker, dataSize int64, info dsfFmt) ([][]byte, error) {
 	data := make([]byte, dataSize)
 	if _, err := io.ReadFull(reader, data); err != nil {
 		return nil, fmt.Errorf("%w: reading DSD data: %w", ErrInvalidChunk, err)

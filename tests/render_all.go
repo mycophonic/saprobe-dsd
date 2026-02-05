@@ -21,13 +21,17 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"math"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	dsd "github.com/mycophonic/saprobe-dsd"
+	"github.com/mycophonic/saprobe-dsd/internal/dff"
+	intdsd "github.com/mycophonic/saprobe-dsd/internal/dsd"
+	"github.com/mycophonic/saprobe-dsd/internal/dsf"
+	"github.com/mycophonic/saprobe-dsd/internal/format"
 )
 
 const (
@@ -57,7 +61,6 @@ func main() {
 
 	for i, path := range files {
 		name := safeName(path)
-		ext := strings.ToLower(filepath.Ext(path))
 		fmt.Printf("[%d/%d] %s\n", i+1, len(files), name)
 
 		file, err := os.Open(path)
@@ -66,39 +69,29 @@ func main() {
 			continue
 		}
 
-		var channels [][]byte
-		var dsdFmt dsd.DSDFormat
-		switch ext {
-		case ".dsf":
-			channels, dsdFmt, err = dsd.DecodeDSF(file)
-		case ".dff":
-			channels, dsdFmt, err = dsd.DecodeDFF(file)
-		}
-		file.Close()
-		if err != nil {
-			fmt.Printf("  SKIP (decode: %v)\n\n", err)
-			continue
-		}
-
-		inputRate := dsd.InputRate(dsdFmt.SampleRate)
-		lsbFirst := dsdFmt.BitOrder == dsd.LSBFirst
-		numCh := len(channels)
-
-		fmt.Printf("  %d Hz, %d ch, %d bytes/ch\n", dsdFmt.SampleRate, numCh, len(channels[0]))
-
+		// WAV rendering: use streaming decoder.
 		wavPath := filepath.Join(saprobeDir, name+".wav")
 		if !exists(wavPath) {
-			renderWAV(wavPath, channels, inputRate, lsbFirst, numCh)
+			renderWAV(wavPath, file)
 		} else {
 			fmt.Printf("  WAV: exists, skipped\n")
 		}
 
+		// DoP rendering: needs raw DSD data from container.
+		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
+			fmt.Printf("  SKIP (seek: %v)\n\n", seekErr)
+			file.Close()
+			continue
+		}
+
 		dopPath := filepath.Join(saprobeDir, name+".dop.wav")
 		if !exists(dopPath) {
-			renderDoP(dopPath, channels, inputRate, dsdFmt.BitOrder, numCh)
+			renderDoP(dopPath, file, path)
 		} else {
 			fmt.Printf("  DoP: exists, skipped\n")
 		}
+
+		file.Close()
 
 		ffPath := filepath.Join(ffmpegDir, name+".wav")
 		if !exists(ffPath) {
@@ -127,44 +120,58 @@ func exists(path string) bool {
 	return err == nil
 }
 
-func renderWAV(outPath string, channels [][]byte, inputRate dsd.InputRate, lsbFirst bool, numCh int) {
-	pipe, err := dsd.NewPipeline(inputRate, dsd.Rate352800)
+func renderWAV(outPath string, file *os.File) {
+	dec, err := dsd.NewDecoder(file, dsd.Rate352800)
 	if err != nil {
-		fmt.Printf("  WAV: ERROR pipeline: %v\n", err)
+		fmt.Printf("  WAV: ERROR decoder: %v\n", err)
 		return
 	}
 
-	pcmChannels := make([][]float32, numCh)
-	for ch := range numCh {
-		n := pipe.OutputSamples(len(channels[ch]))
-		pcmChannels[ch] = make([]float32, n)
-		got := pipe.Process(channels[ch], lsbFirst, pcmChannels[ch])
-		pcmChannels[ch] = pcmChannels[ch][:got]
-		pipe.Reset()
+	pcm, err := io.ReadAll(dec)
+	if err != nil {
+		fmt.Printf("  WAV: ERROR read: %v\n", err)
+		return
 	}
 
-	samplesPerCh := len(pcmChannels[0])
-	dataSize := samplesPerCh * numCh * 4
-	data := make([]byte, dataSize)
-	for i := range samplesPerCh {
-		for ch := range numCh {
-			offset := (i*numCh + ch) * 4
-			binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(pcmChannels[ch][i]))
-		}
-	}
+	pcmFmt := dec.Format()
+	samplesPerCh := len(pcm) / (pcmFmt.Channels * 4)
 
-	writeWAV(outPath, data, 352800, numCh, 32, true)
+	writeWAV(outPath, pcm, 352800, pcmFmt.Channels, 32, true)
 	fmt.Printf("  WAV: %s (%d samples/ch)\n", filepath.Base(outPath), samplesPerCh)
 }
 
-func renderDoP(outPath string, channels [][]byte, inputRate dsd.InputRate, bitOrder dsd.BitOrder, numCh int) {
-	dopRate, err := dsd.DoPRate(inputRate)
+func renderDoP(dopPath string, file *os.File, path string) {
+	ext := strings.ToLower(filepath.Ext(path))
+
+	var channels [][]byte
+	var dsdFmt format.DSDFormat
+	var err error
+
+	switch ext {
+	case ".dsf":
+		channels, dsdFmt, err = dsf.Decode(file)
+	case ".dff":
+		channels, dsdFmt, err = dff.Decode(file)
+	default:
+		fmt.Printf("  DoP: SKIP (unknown ext %s)\n", ext)
+		return
+	}
+
+	if err != nil {
+		fmt.Printf("  DoP: SKIP (decode: %v)\n", err)
+		return
+	}
+
+	inputRate := intdsd.InputRate(dsdFmt.SampleRate)
+	numCh := len(channels)
+
+	dopRate, err := dsd.DoPRate(dsd.InputRate(inputRate))
 	if err != nil {
 		fmt.Printf("  DoP: skipped (%v)\n", err)
 		return
 	}
 
-	enc := dsd.NewDoPEncoder(bitOrder)
+	enc := dsd.NewDoPEncoder(dsd.BitOrder(dsdFmt.BitOrder))
 	outSize := dsd.DoPOutputSize(len(channels[0]), numCh)
 	dst := make([]byte, outSize)
 
@@ -174,8 +181,8 @@ func renderDoP(outPath string, channels [][]byte, inputRate dsd.InputRate, bitOr
 		return
 	}
 
-	writeWAV(outPath, dst[:n], dopRate, numCh, 24, false)
-	fmt.Printf("  DoP: %s (%d Hz)\n", filepath.Base(outPath), dopRate)
+	writeWAV(dopPath, dst[:n], dopRate, numCh, 24, false)
+	fmt.Printf("  DoP: %s (%d Hz)\n", filepath.Base(dopPath), dopRate)
 }
 
 func renderFFmpeg(outPath, srcPath string) {

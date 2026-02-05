@@ -39,9 +39,10 @@ type Pipeline struct {
 	// Stage 2: cascaded halfband 2:1 decimators.
 	halfbands []*Halfband
 
-	// Intermediate buffers, reused across Process calls.
-	buf64a []float64 // stage1 output (float64), or halfband input
-	buf64b []float64 // halfband output (ping-pong with buf64a)
+	// Intermediate buffers, reused across Process calls (grow-only, zero-alloc after warmup).
+	stage1Buf []float32 // stage1 output (Converter writes float32)
+	buf64a    []float64 // stage1 output converted to float64, or halfband input
+	buf64b    []float64 // halfband output (ping-pong with buf64a)
 }
 
 // ErrUnsupportedRate is returned when the DSD/output rate combination is invalid.
@@ -49,7 +50,7 @@ var ErrUnsupportedRate = errors.New("dsd: unsupported rate combination")
 
 // NewPipeline creates a conversion pipeline for the given rate combination.
 //
-// All 25 combinations of DSD64..DSD1024 and 44.1k..705.6k are supported.
+// All 30 combinations of DSD64..DSD2048 and 44.1k..705.6k are supported.
 // Returns ErrUnsupportedRate for invalid combinations.
 func NewPipeline(dsdRate InputRate, outputRate OutputRate) (*Pipeline, error) {
 	initTables()
@@ -93,6 +94,12 @@ func NewPipeline(dsdRate InputRate, outputRate OutputRate) (*Pipeline, error) {
 
 	return pipe, nil
 }
+
+// DSDRate returns the pipeline's DSD input rate.
+func (p *Pipeline) DSDRate() InputRate { return p.dsdRate }
+
+// PCMRate returns the pipeline's PCM output rate.
+func (p *Pipeline) PCMRate() OutputRate { return p.outputRate }
 
 // Reset reinitializes all converter states to silence.
 func (p *Pipeline) Reset() {
@@ -154,7 +161,8 @@ func (p *Pipeline) Process(src []byte, lsbFirst bool, dst []float32) int {
 
 	// 8:1 path: byte-level decimation produces nBytes float32 samples.
 	// Convert to float64 for halfband processing.
-	stage1Out := make([]float32, nBytes)
+	p.stage1Buf = ensureLenF32(p.stage1Buf, nBytes)
+	stage1Out := p.stage1Buf
 	p.stage1.Translate(nBytes, src, 1, lsbFirst, stage1Out, 1)
 
 	// Convert stage1 output to float64 for halfband chain.
@@ -201,4 +209,12 @@ func ensureLen(buf []float64, n int) []float64 {
 	}
 
 	return make([]float64, n)
+}
+
+func ensureLenF32(buf []float32, n int) []float32 {
+	if cap(buf) >= n {
+		return buf[:n]
+	}
+
+	return make([]float32, n)
 }

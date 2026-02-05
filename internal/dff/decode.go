@@ -64,40 +64,66 @@ type dffProps struct {
 	channelCount int
 }
 
+// Header holds parsed DFF metadata. After ParseHeader returns, the reader is
+// positioned at the start of the DSD data payload.
+type Header struct {
+	Format   dfmt.DSDFormat
+	DataSize int64 // total DSD data bytes (all channels interleaved)
+}
+
+// ParseHeader reads DFF headers and positions the reader at the start of the
+// DSD data payload. Use this for streaming decoding without reading all data.
+func ParseHeader(reader io.ReadSeeker) (Header, error) {
+	formEnd, err := parseFRM8Header(reader)
+	if err != nil {
+		return Header{}, err
+	}
+
+	props, dsdDataOffset, dsdDataSize, err := walkTopChunks(reader, frm8HeaderSize, formEnd)
+	if err != nil {
+		return Header{}, err
+	}
+
+	if dsdDataSize == 0 {
+		return Header{}, ErrMissingDSDData
+	}
+
+	// Seek to start of DSD data payload.
+	if _, err := reader.Seek(dsdDataOffset, io.SeekStart); err != nil {
+		return Header{}, fmt.Errorf("%w: seeking to DSD data: %w", ErrInvalidChunk, err)
+	}
+
+	return Header{
+		Format: dfmt.DSDFormat{
+			SampleRate:        props.sampleRate,
+			Channels:          uint(props.channelCount), //nolint:gosec // channelCount validated > 0 in PROP
+			SamplesPerChannel: dsdDataSize / int64(props.channelCount) * bitsPerByte,
+			BitOrder:          dfmt.MSBFirst,
+		},
+		DataSize: dsdDataSize,
+	}, nil
+}
+
 // Decode reads a DSDIFF file and returns per-channel raw DSD bytes.
 //
 // Each element of the returned slice contains the DSD data for one channel.
 // The bit ordering is MSB-first (as specified by the DSDIFF format).
 // DST-compressed files are not supported and return [ErrDSTCompressed].
 func Decode(reader io.ReadSeeker) ([][]byte, dfmt.DSDFormat, error) {
-	var format dfmt.DSDFormat
-
-	formEnd, err := parseFRM8Header(reader)
+	hdr, err := ParseHeader(reader)
 	if err != nil {
-		return nil, format, err
+		return nil, dfmt.DSDFormat{}, err
 	}
 
-	props, dsdDataOffset, dsdDataSize, err := walkTopChunks(reader, frm8HeaderSize, formEnd)
-	if err != nil {
-		return nil, format, err
+	// Reader is already positioned at DSD data start from ParseHeader.
+	data := make([]byte, hdr.DataSize)
+	if _, err := io.ReadFull(reader, data); err != nil {
+		return nil, dfmt.DSDFormat{}, fmt.Errorf("%w: reading DSD data: %w", ErrInvalidChunk, err)
 	}
 
-	if dsdDataSize == 0 {
-		return nil, format, ErrMissingDSDData
-	}
+	channels := deinterleave(data, int(hdr.Format.Channels)) //nolint:gosec // channelCount validated in ParseHeader
 
-	format.SampleRate = props.sampleRate
-	format.Channels = uint(props.channelCount) //nolint:gosec // channelCount validated > 0 in PROP
-	format.BitOrder = dfmt.MSBFirst
-
-	channels, err := readDSDData(reader, dsdDataOffset, dsdDataSize, props.channelCount)
-	if err != nil {
-		return nil, format, err
-	}
-
-	format.SamplesPerChannel = int64(len(channels[0])) * bitsPerByte
-
-	return channels, format, nil
+	return channels, hdr.Format, nil
 }
 
 // parseFRM8Header reads the 16-byte FRM8 header and returns the end offset of
@@ -305,23 +331,6 @@ func parseCMPRChunk(reader io.ReadSeeker, contentStart int64) error {
 	}
 
 	return nil
-}
-
-// readDSDData reads and de-interleaves the DSD sound data.
-//
-// DSDIFF interleaves data per-sample across channels:
-// [ch0_byte, ch1_byte, ..., chN_byte] repeating.
-func readDSDData(reader io.ReadSeeker, offset, size int64, channelCount int) ([][]byte, error) {
-	if _, err := reader.Seek(offset, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("%w: seeking to DSD data: %w", ErrInvalidChunk, err)
-	}
-
-	data := make([]byte, size)
-	if _, err := io.ReadFull(reader, data); err != nil {
-		return nil, fmt.Errorf("%w: reading DSD data: %w", ErrInvalidChunk, err)
-	}
-
-	return deinterleave(data, channelCount), nil
 }
 
 // deinterleave splits sample-interleaved DSD data into per-channel slices.

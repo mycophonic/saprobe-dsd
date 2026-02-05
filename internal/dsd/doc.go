@@ -15,7 +15,7 @@
 */
 
 // Package dsd provides DSD-to-PCM conversion supporting all standard DSD rates
-// (DSD64 through DSD1024) with output to any 44.1 kHz-family rate
+// (DSD64 through DSD2048) with output to any 44.1 kHz-family rate
 // (44.1k, 88.2k, 176.4k, 352.8k, 705.6k).
 //
 // Architecture:

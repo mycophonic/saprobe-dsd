@@ -17,70 +17,15 @@
 package tests_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/mycophonic/agar/pkg/agar"
-
-	dsd "github.com/mycophonic/saprobe-dsd"
 )
-
-// decodeDSDFile opens and decodes a DSF or DFF file, returning per-channel DSD bytes.
-func decodeDSDFile(path string) ([][]byte, dsd.DSDFormat, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, dsd.DSDFormat{}, err
-	}
-	defer file.Close()
-
-	ext := strings.ToLower(filepath.Ext(path))
-
-	switch ext {
-	case ".dsf":
-		return dsd.DecodeDSF(file)
-	default:
-		return dsd.DecodeDFF(file)
-	}
-}
-
-// discoverDSDFiles returns all .dsf and .dff files in the given directory, sorted by name.
-func discoverDSDFiles(t *testing.T, dir string) []string {
-	t.Helper()
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("reading %s: %v", dir, err)
-	}
-
-	var files []string
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-		if ext == ".dsf" || ext == ".dff" {
-			files = append(files, filepath.Join(dir, entry.Name()))
-		}
-	}
-
-	if len(files) == 0 {
-		t.Fatalf("no .dsf or .dff files found in %s", dir)
-	}
-
-	return files
-}
 
 // Benchmark infrastructure.
 
-const (
-	benchIterations = agar.DefaultBenchIterations
-	benchDuration   = 10 // seconds of synthetic DSD audio
-)
+const benchIterations = agar.DefaultBenchIterations
 
 // benchResult wraps agar.BenchResult with a string-based Format for simpler test code.
 type benchResult struct {

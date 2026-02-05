@@ -31,11 +31,6 @@ const (
 	LSBFirst BitOrder = format.LSBFirst
 )
 
-// DSDFormat describes the format of raw DSD audio data extracted from a container.
-//
-//revive:disable-next-line:exported // DSD is an acronym, not a package prefix stutter.
-type DSDFormat = format.DSDFormat
-
 // PCMFormat describes the format of decoded PCM audio output.
 type PCMFormat struct {
 	SampleRate int
@@ -53,6 +48,7 @@ const (
 	DSD256  InputRate = intdsd.DSD256
 	DSD512  InputRate = intdsd.DSD512
 	DSD1024 InputRate = intdsd.DSD1024
+	DSD2048 InputRate = intdsd.DSD2048
 )
 
 // OutputRate represents a PCM output sample rate in Hz.

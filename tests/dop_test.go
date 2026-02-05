@@ -37,6 +37,7 @@ func TestDoPRate(t *testing.T) {
 		{dsd.DSD256, 705_600, false},
 		{dsd.DSD512, 0, true},
 		{dsd.DSD1024, 0, true},
+		{dsd.DSD2048, 0, true},
 	}
 
 	for _, tt := range tests {

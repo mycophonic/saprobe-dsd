@@ -18,6 +18,7 @@ package tests_test
 
 import (
 	"encoding/binary"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -28,17 +29,6 @@ import (
 
 	dsd "github.com/mycophonic/saprobe-dsd"
 )
-
-// Supported DSD sample rates for validation.
-//
-//nolint:gochecknoglobals
-var validDSDRates = map[int]dsd.InputRate{
-	int(dsd.DSD64):   dsd.DSD64,
-	int(dsd.DSD128):  dsd.DSD128,
-	int(dsd.DSD256):  dsd.DSD256,
-	int(dsd.DSD512):  dsd.DSD512,
-	int(dsd.DSD1024): dsd.DSD1024,
-}
 
 // DSD-to-PCM comparison tolerances.
 //
@@ -75,8 +65,8 @@ const (
 	dsdBytesPerFloat32 = 4
 )
 
-// TestDecodeFile decodes a real DSF or DFF file from disk, validates the
-// container parse and DSD-to-PCM pipeline output, and compares against ffmpeg.
+// TestDecodeFile decodes a real DSF or DFF file from disk using the streaming
+// decoder and compares against ffmpeg.
 //
 // Set BENCH_FILE to a .dsf or .dff file path to run.
 //
@@ -101,106 +91,31 @@ func TestDecodeFile(t *testing.T) {
 
 	t.Logf("File: %s", filePath)
 
-	channels, dsdFmt, err := decodeContainer(file, ext)
+	dec, err := dsd.NewDecoder(file, dsd.Rate352800)
 	if err != nil {
-		t.Fatalf("decode container: %v", err)
+		t.Fatalf("new decoder: %v", err)
 	}
 
-	validateFormat(t, dsdFmt, len(channels))
-	validateChannelData(t, channels)
-
-	inputRate := validDSDRates[dsdFmt.SampleRate]
-	lsbFirst := dsdFmt.BitOrder == dsd.LSBFirst
-
-	saprobeChannels := decodePipeline(t, channels, inputRate, lsbFirst)
-
-	// Cross-compare with ffmpeg.
-	ffmpegChannels := decodeWithFFmpeg(t, filePath, int(dsdFmt.Channels))
-	compareDSDOutputs(t, saprobeChannels, ffmpegChannels)
-}
-
-func decodeContainer(file *os.File, ext string) ([][]byte, dsd.DSDFormat, error) {
-	switch ext {
-	case ".dsf":
-		return dsd.DecodeDSF(file)
-	default:
-		return dsd.DecodeDFF(file)
-	}
-}
-
-func validateFormat(t *testing.T, dsdFmt dsd.DSDFormat, channelCount int) {
-	t.Helper()
-
-	t.Logf("  Format: %d Hz, %d channels, %d samples/ch, bitOrder=%d",
-		dsdFmt.SampleRate, dsdFmt.Channels, dsdFmt.SamplesPerChannel, dsdFmt.BitOrder)
-
-	if _, valid := validDSDRates[dsdFmt.SampleRate]; !valid {
-		t.Fatalf("unexpected DSD sample rate: %d", dsdFmt.SampleRate)
-	}
-
-	if dsdFmt.Channels == 0 {
-		t.Fatal("channel count is 0")
-	}
-
-	if dsdFmt.SamplesPerChannel <= 0 {
-		t.Fatal("samples per channel is 0")
-	}
-
-	if int(dsdFmt.Channels) != channelCount {
-		t.Fatalf("format says %d channels, got %d channel slices", dsdFmt.Channels, channelCount)
-	}
-}
-
-func validateChannelData(t *testing.T, channels [][]byte) {
-	t.Helper()
-
-	channelLen := len(channels[0])
-	if channelLen == 0 {
-		t.Fatal("channel 0 has no data")
-	}
-
-	for chIdx, chData := range channels {
-		if len(chData) != channelLen {
-			t.Fatalf("channel %d length %d != channel 0 length %d", chIdx, len(chData), channelLen)
-		}
-	}
-
-	t.Logf("  Channels: %d, bytes/channel: %d", len(channels), channelLen)
-}
-
-// decodePipeline runs the DSD-to-PCM pipeline on each channel and validates output.
-func decodePipeline(
-	t *testing.T,
-	channels [][]byte,
-	inputRate dsd.InputRate,
-	lsbFirst bool,
-) [][]float32 {
-	t.Helper()
-
-	pipe, err := dsd.NewPipeline(inputRate, dsd.Rate352800)
+	pcmBytes, err := io.ReadAll(dec)
 	if err != nil {
-		t.Fatalf("NewPipeline(%s, 352.8kHz): %v", inputRate, err)
+		t.Fatalf("read all: %v", err)
 	}
 
-	result := make([][]float32, len(channels))
+	pcmFmt := dec.Format()
+	channelCount := pcmFmt.Channels
 
-	for chIdx, chData := range channels {
-		expectedOut := pipe.OutputSamples(len(chData))
-		pcmOut := make([]float32, expectedOut)
+	t.Logf("  Format: %d Hz, %d-bit, %d ch, %d bytes PCM",
+		pcmFmt.SampleRate, pcmFmt.BitDepth, channelCount, len(pcmBytes))
 
-		got := pipe.Process(chData, lsbFirst, pcmOut)
-		if got != expectedOut {
-			t.Errorf("ch%d: pipeline produced %d samples, expected %d", chIdx, got, expectedOut)
-		}
+	// Parse interleaved f32le bytes into per-channel float32 slices.
+	saprobeChannels := parseInterleavedF32(pcmBytes, channelCount)
 
-		if hasNaNOrInfF32(pcmOut[:got]) {
-			t.Errorf("ch%d: output contains NaN or Inf", chIdx)
-		}
+	for chIdx := range channelCount {
+		peak := peakAbsF32(saprobeChannels[chIdx])
+		rmsVal := rmsFloat32(saprobeChannels[chIdx])
 
-		peak := peakAbsF32(pcmOut[:got])
-		rmsVal := rmsFloat32(pcmOut[:got])
-
-		t.Logf("  saprobe ch%d: %d samples, peak=%.4f, rms=%.6f", chIdx, got, peak, rmsVal)
+		t.Logf("  saprobe ch%d: %d samples, peak=%.4f, rms=%.6f",
+			chIdx, len(saprobeChannels[chIdx]), peak, rmsVal)
 
 		if peak > 10.0 {
 			t.Errorf("ch%d: peak %.4f exceeds reasonable range", chIdx, peak)
@@ -211,11 +126,34 @@ func decodePipeline(
 			t.Errorf("ch%d: RMS %.6f suspiciously low for real audio", chIdx, rmsVal)
 		}
 
-		result[chIdx] = pcmOut[:got]
-		pipe.Reset()
+		if hasNaNOrInfF32(saprobeChannels[chIdx]) {
+			t.Errorf("ch%d: output contains NaN or Inf", chIdx)
+		}
 	}
 
-	return result
+	// Cross-compare with ffmpeg.
+	ffmpegChannels := decodeWithFFmpeg(t, filePath, channelCount)
+	compareDSDOutputs(t, saprobeChannels, ffmpegChannels)
+}
+
+// parseInterleavedF32 splits interleaved f32le bytes into per-channel float32 slices.
+func parseInterleavedF32(pcmBytes []byte, channelCount int) [][]float32 {
+	samplesPerChannel := len(pcmBytes) / dsdBytesPerFloat32 / channelCount
+	channels := make([][]float32, channelCount)
+
+	for ch := range channelCount {
+		channels[ch] = make([]float32, samplesPerChannel)
+	}
+
+	for idx := range samplesPerChannel {
+		for ch := range channelCount {
+			byteOffset := (idx*channelCount + ch) * dsdBytesPerFloat32
+			bits := binary.LittleEndian.Uint32(pcmBytes[byteOffset:])
+			channels[ch][idx] = math.Float32frombits(bits)
+		}
+	}
+
+	return channels
 }
 
 // decodeWithFFmpeg decodes a DSD file to float32 PCM at 352.8 kHz using ffmpeg.
@@ -237,24 +175,10 @@ func decodeWithFFmpeg(t *testing.T, filePath string, channelCount int) [][]float
 		},
 	})
 
-	ffmpegPCM := ffmpegResult.Stdout
-
-	samplesPerChannel := len(ffmpegPCM) / dsdBytesPerFloat32 / channelCount
-	parsed := make([][]float32, channelCount)
-
-	for ch := range channelCount {
-		parsed[ch] = make([]float32, samplesPerChannel)
-	}
-
-	for idx := range samplesPerChannel {
-		for ch := range channelCount {
-			byteOffset := (idx*channelCount + ch) * dsdBytesPerFloat32
-			bits := binary.LittleEndian.Uint32(ffmpegPCM[byteOffset:])
-			parsed[ch][idx] = math.Float32frombits(bits)
-		}
-	}
+	parsed := parseInterleavedF32(ffmpegResult.Stdout, channelCount)
 
 	for chIdx := range channelCount {
+		samplesPerChannel := len(parsed[chIdx])
 		peak := peakAbsF32(parsed[chIdx])
 		rmsVal := rmsFloat32(parsed[chIdx])
 
