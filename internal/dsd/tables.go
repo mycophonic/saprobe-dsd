@@ -87,7 +87,7 @@ var htaps = [htapsCount]float64{
 
 //nolint:gochecknoglobals
 var (
-	ctables    [ctablesLen][256]float32
+	ctables    [ctablesLen][256]float64
 	bitReverse [256]byte
 	tablesOnce sync.Once
 )
@@ -118,7 +118,7 @@ func initTables() {
 					acc += float64(((entry>>(7-bit))&1)*2-1) * htaps[table*8+bit]
 				}
 
-				ctables[ctablesLen-1-table][entry] = float32(acc)
+				ctables[ctablesLen-1-table][entry] = acc
 			}
 		}
 	})

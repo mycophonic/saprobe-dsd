@@ -67,7 +67,7 @@ func (c *Converter4to1) Clone() *Converter4to1 {
 	return clone
 }
 
-// Translate converts DSD octets to PCM float32 samples with 4:1 decimation.
+// Translate converts DSD octets to PCM float64 samples with 4:1 decimation.
 //
 // Each input byte produces 2 output samples (8 bits / 4 = 2).
 //
@@ -76,7 +76,7 @@ func (c *Converter4to1) Clone() *Converter4to1 {
 //   - src: input DSD data
 //   - srcStride: increment between consecutive input octets
 //   - lsbFirst: true if least-significant bit is first in each octet
-//   - dst: output PCM samples (float32)
+//   - dst: output PCM samples (float64)
 //   - dstStride: increment between consecutive output samples
 //
 // Returns the number of output samples produced (= samples * 2).
@@ -86,7 +86,7 @@ func (c *Converter4to1) Translate(
 	samples int,
 	src []byte, srcStride int,
 	lsbFirst bool,
-	dst []float32, dstStride int,
+	dst []float64, dstStride int,
 ) int {
 	ringLen := len(c.ring)
 	tapsLen := len(c.taps)
@@ -120,7 +120,7 @@ func (c *Converter4to1) Translate(
 					acc += c.taps[k] * c.ring[idx]
 				}
 
-				dst[dstIdx] = float32(acc)
+				dst[dstIdx] = acc
 				dstIdx += dstStride
 			}
 		}

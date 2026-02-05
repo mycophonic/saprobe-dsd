@@ -21,12 +21,16 @@
 // Architecture:
 //
 //   - Stage 1: Byte-level 8:1 decimation using Gesemann's 96-tap symmetric FIR
-//     filter with precomputed lookup tables. Ported from Sebastian Gesemann's
-//     dsd2pcm (BSD-2-Clause). A 4:1 bit-level variant handles the DSD64->705.6k
-//     edge case.
+//     filter with precomputed float64 lookup tables. Ported from Sebastian
+//     Gesemann's dsd2pcm (BSD-2-Clause). A 4:1 bit-level variant handles the
+//     DSD64->705.6k edge case.
 //
 //   - Stage 2: Cascaded halfband 2:1 decimation on float64 data. Parks-McClellan
 //     designed FIR filter reused at each stage.
+//
+// All internal processing uses float64 for maximum precision, matching ffmpeg's
+// DSD decoder implementation. Conversion to float32 occurs only at the final
+// output boundary.
 //
 // Use [NewPipeline] for multi-rate conversion. The low-level [Converter] type
 // provides direct access to the 8:1 byte-level decimation.

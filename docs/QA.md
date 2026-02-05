@@ -61,6 +61,29 @@ Full paths:
 /Volumes/Anisotope/Music/Processor/Incoming/[NOT IN MB]/Chico Hamilton - Man From Two Worlds_R2R_DSD_Stig/A1.Man from Two Worlds.dsf
 ```
 
+## ffmpeg Comparison
+
+`TestDecodeFile` cross-compares saprobe output against ffmpeg using statistical properties (RMS energy, peak level) rather than per-sample matching. DSD-to-PCM conversion has no standard algorithm — different implementations use different FIR filters, decimation strategies, and group delays.
+
+**Tolerances:**
+- **RMS/Peak difference:** ≤10% (relative to ffmpeg)
+- **Sample count difference:** ≤4096 samples
+
+**Measured Results (2025-02, float64 precision):**
+
+| File | Rate | Container | Sample Diff | RMS Diff | Peak Diff |
+|------|------|-----------|-------------|----------|-----------|
+| Dolphy — Eclipse | DSD128 | DFF | +2047 | 1.65-1.79% | 1.63-1.87% |
+| Hamilton — Man from Two Worlds | DSD128 | DSF | +2047 | 1.32-1.86% | 1.53-1.57% |
+| Dolphy — 245 | DSD256 | DSF | +1024 | 5.05-5.10% | 4.87-5.17% |
+
+**Observations:**
+- DSD128: RMS diff 1.3-1.9%, peak diff 1.5-1.9% — well within tolerance
+- DSD256: RMS diff ~5.1%, peak diff ~5.0% — within tolerance but higher due to additional halfband stages
+- Sample count: saprobe produces ~2048 more samples (DSD128) or ~1024 more (DSD256) due to different group delay handling at stream boundaries
+
+Higher DSD rates require more halfband decimation stages, causing greater divergence between saprobe's FIR+halfband cascade and ffmpeg's resampler.
+
 ## Benchmarks
 
 ### Synthetic Decode (`TestBenchmarkDecode`)
@@ -71,19 +94,46 @@ Benchmarks the DSD-to-PCM pipeline with synthetic data across DSD64, DSD128, and
 cd tests && go test -run TestBenchmarkDecode -count=1 -v
 ```
 
+**Methodology:**
 - **Rates:** DSD64 (2.8 MHz), DSD128 (5.6 MHz), DSD256 (11.2 MHz)
-- **Duration:** 10 seconds per rate (stereo)
-- **Decoder:** saprobe (pipeline only, no container overhead)
+- **Duration:** 1 second per rate (stereo)
+- **Container:** Synthetic DSF with DSD silence (0x69)
+- **Output:** 352.8 kHz PCM
 - **Iterations:** 10 per configuration
-- **Statistics:** median, mean, stddev, min, max
+- **Metric:** median decode time
 
-| Rate | DSD Data | saprobe | Realtime Factor |
-|------|----------|---------|-----------------|
-| DSD64 | 6.7 MB | 61ms | 164x |
-| DSD128 | 13.5 MB | 605ms | 16.5x |
-| DSD256 | 26.9 MB | 1.69s | 5.9x |
+**Baseline (2025-02, M1 Max):**
 
-DSD64 is comfortably fast. DSD128 and DSD256 are progressively slower due to the multi-stage halfband decimation chain (DSD128 adds one stage, DSD256 adds two).
+| Rate | Container | Median | Realtime |
+|------|-----------|--------|----------|
+| DSD64 | 0.7 MB | 8ms | 125x |
+| DSD128 | 1.4 MB | 62ms | 16x |
+| DSD256 | 2.7 MB | 171ms | 5.8x |
+
+Higher rates are progressively slower due to the multi-stage halfband decimation chain (DSD128 adds one stage, DSD256 adds two). DSD256 at 5.8x realtime is adequate for streaming playback but leaves less headroom than lower rates.
+
+### Profiling (`TestProfileDecode`)
+
+CPU and allocation profiling of the DSD-to-PCM pipeline using synthetic DSD128 stereo data (10 seconds). Uses longer duration than benchmark to collect enough pprof samples.
+
+```bash
+./hack/bench.sh TestProfileDecode
+```
+
+Generates `docs/decode_cpu.png` and `docs/decode_alloc.png`.
+
+**CPU profile breakdown:**
+
+| Function | Flat | Cumulative |
+|----------|------|------------|
+| Halfband.Process | 72.15% | 76.96% |
+| Converter.Translate | 14.66% | 15.32% |
+| asyncPreempt (runtime) | 5.66% | 5.66% |
+| Pipeline.Process | 1.60% | 94.02% |
+
+The halfband filter dominates CPU time — this is expected since it performs the heavy lifting of decimation across multiple stages. The converter (8:1 DSD-to-PCM translation with noise shaping) accounts for ~15%.
+
+**Memory profile:** Test data generation dominates allocations (~79%). Runtime allocations during decoding are minimal — the pipeline reuses buffers and produces zero allocations per chunk after warmup (verified by `BenchmarkPipelineAllocs`).
 
 ### Real Files (`TestBenchmarkDecodeFile`)
 

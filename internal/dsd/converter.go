@@ -54,7 +54,7 @@ func (c *Converter) Clone() *Converter {
 	return &cp
 }
 
-// Translate converts DSD octets to PCM float32 samples (8:1 decimation).
+// Translate converts DSD octets to PCM float64 samples (8:1 decimation).
 //
 // Each input octet produces one output float sample. For multi-channel
 // interleaved data, use srcStride and dstStride to skip between channels.
@@ -64,7 +64,7 @@ func (c *Converter) Clone() *Converter {
 //   - src: input DSD data
 //   - srcStride: increment between consecutive input octets for this channel
 //   - lsbFirst: true if least-significant bit is first in each octet
-//   - dst: output PCM samples (float32, nominally in [-1, +1])
+//   - dst: output PCM samples (float64, nominally in [-1, +1])
 //   - dstStride: increment between consecutive output samples for this channel
 //
 //revive:disable-next-line:flag-parameter // lsbFirst is inherent to DSD container format distinction.
@@ -72,7 +72,7 @@ func (c *Converter) Translate(
 	samples int,
 	src []byte, srcStride int,
 	lsbFirst bool,
-	dst []float32, dstStride int,
+	dst []float64, dstStride int,
 ) {
 	ffp := c.fifoPos
 	srcIdx := 0
@@ -90,15 +90,15 @@ func (c *Converter) Translate(
 		p := (ffp - ctablesLen) & fifoMask
 		c.fifo[p] = bitReverse[c.fifo[p]&0xFF]
 
-		acc := float64(0)
+		acc := 0.0
 
 		for i := range uint(ctablesLen) {
 			b1 := c.fifo[(ffp-i)&fifoMask] & 0xFF
 			b2 := c.fifo[(ffp-(ctablesLen*2-1)+i)&fifoMask] & 0xFF
-			acc += float64(ctables[i][b1]) + float64(ctables[i][b2])
+			acc += ctables[i][b1] + ctables[i][b2]
 		}
 
-		dst[dstIdx] = float32(acc)
+		dst[dstIdx] = acc
 		dstIdx += dstStride
 		ffp = (ffp + 1) & fifoMask
 	}

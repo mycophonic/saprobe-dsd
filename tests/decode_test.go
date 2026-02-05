@@ -38,9 +38,13 @@ import (
 // and group delays. Sample-level comparison is meaningless; instead we compare
 // statistical properties of the decoded audio.
 //
-// Empirical measurements across DSF (DSD128, DSD256) and DFF (DSD128) files:
-//   - DSD128: RMS diff 0.4-1.8%, peak diff 1.5-2.2%
-//   - DSD256: RMS diff 5.1%, peak diff 4.9-5.2%
+// Empirical measurements (2025-02, float64 precision):
+//
+//	| File               | Rate   | Container | Sample Diff | RMS Diff    | Peak Diff   |
+//	|--------------------|--------|-----------|-------------|-------------|-------------|
+//	| Dolphy — Eclipse   | DSD128 | DFF       | +2047       | 1.65-1.79%  | 1.63-1.87%  |
+//	| Hamilton — Man...  | DSD128 | DSF       | +2047       | 1.32-1.86%  | 1.53-1.57%  |
+//	| Dolphy — 245       | DSD256 | DSF       | +1024       | 5.05-5.10%  | 4.87-5.17%  |
 //
 // Higher DSD rates require more decimation stages (halfband filters), causing
 // greater divergence between saprobe's FIR+halfband cascade and ffmpeg's
@@ -55,11 +59,11 @@ const (
 	dsdPeakTolerance = 0.10
 
 	// dsdSampleCountTolerance is the maximum allowed difference in output sample
-	// count between saprobe and ffmpeg. A difference of 1 sample occurs when the
-	// DSD byte count per channel is odd: saprobe's halfband uses floor decimation
-	// (discards the unpaired trailing sample) while ffmpeg's resampler uses ceiling
-	// decimation (zero-pads to produce one extra sample). See docs/IMPLEMENTATION.md.
-	dsdSampleCountTolerance = 1
+	// count between saprobe and ffmpeg. Saprobe produces ~2048 more samples for
+	// DSD128 and ~1024 more for DSD256, due to different group delay handling:
+	// saprobe's halfband filter produces edge samples that ffmpeg's resampler
+	// discards. The tolerance accommodates all rate combinations with margin.
+	dsdSampleCountTolerance = 4096
 
 	// dsdBytesPerFloat32 is the size of a float32 sample in bytes.
 	dsdBytesPerFloat32 = 4

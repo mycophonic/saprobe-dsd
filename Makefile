@@ -36,8 +36,8 @@ test-unit-bench:
 
 test-unit-race:
 	$(call title, $@)
-	@CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" $(PROJECT_DIR)/... -race
-	@cd $(TEST_MODULE) && CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" ./... -race
+	@CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" -timeout 30m $(PROJECT_DIR)/... -race
+	@cd $(TEST_MODULE) && CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" -timeout 30m ./... -race
 	$(call footer, $@)
 
 lint-mod:

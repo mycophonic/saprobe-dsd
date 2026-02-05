@@ -233,22 +233,23 @@ func TestDSDPipeline8to1Equivalence(t *testing.T) {
 		t.Fatalf("reading DSD data: %v", err)
 	}
 
-	// Pipeline path.
+	// Pipeline path (outputs float32).
 	pipeDst := make([]float32, pipe.OutputSamples(len(src)))
 	pipeGot := pipe.Process(src, false, pipeDst)
 
-	// Direct Converter path.
+	// Direct Converter path (outputs float64, convert to float32 for comparison).
 	conv := intdsd.NewConverter()
-	convDst := make([]float32, len(src))
-	conv.Translate(len(src), src, 1, false, convDst, 1)
+	convDst64 := make([]float64, len(src))
+	conv.Translate(len(src), src, 1, false, convDst64, 1)
 
 	if pipeGot != len(src) {
 		t.Fatalf("pipeline produced %d samples, expected %d", pipeGot, len(src))
 	}
 
 	for idx := range pipeGot {
-		if pipeDst[idx] != convDst[idx] {
-			t.Errorf("sample %d: pipeline=%.8f, converter=%.8f", idx, pipeDst[idx], convDst[idx])
+		convF32 := float32(convDst64[idx])
+		if pipeDst[idx] != convF32 {
+			t.Errorf("sample %d: pipeline=%.8f, converter=%.8f", idx, pipeDst[idx], convF32)
 
 			break
 		}

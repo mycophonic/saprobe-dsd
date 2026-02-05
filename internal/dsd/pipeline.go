@@ -27,7 +27,10 @@ import (
 // Stage 1: Byte-level 8:1 decimation (Gesemann 96-tap filter) for most rate
 // combinations, or 4:1 bit-level FIR for the DSD64->705.6k edge case.
 //
-// Stage 2: Zero or more cascaded halfband 2:1 decimation stages on float data.
+// Stage 2: Zero or more cascaded halfband 2:1 decimation stages on float64 data.
+//
+// All internal processing uses float64 for maximum precision. The final output
+// is converted to float32 only at the Process() boundary.
 type Pipeline struct {
 	dsdRate    InputRate
 	outputRate OutputRate
@@ -40,9 +43,8 @@ type Pipeline struct {
 	halfbands []*Halfband
 
 	// Intermediate buffers, reused across Process calls (grow-only, zero-alloc after warmup).
-	stage1Buf []float32 // stage1 output (Converter writes float32)
-	buf64a    []float64 // stage1 output converted to float64, or halfband input
-	buf64b    []float64 // halfband output (ping-pong with buf64a)
+	buf64a []float64 // stage1 output / halfband input
+	buf64b []float64 // halfband output (ping-pong with buf64a)
 }
 
 // ErrUnsupportedRate is returned when the DSD/output rate combination is invalid.
@@ -145,6 +147,9 @@ func (p *Pipeline) Clone() *Pipeline {
 // one intermediate sample that is then decimated by the halfband stages.
 // For the 4:1 path, each byte produces 2 output samples.
 //
+// All internal processing uses float64 for maximum precision (matching ffmpeg).
+// Conversion to float32 occurs only at this output boundary.
+//
 // Parameters:
 //   - src: input DSD data for a single channel
 //   - lsbFirst: true if least-significant bit is first in each octet
@@ -155,21 +160,22 @@ func (p *Pipeline) Process(src []byte, lsbFirst bool, dst []float32) int {
 	nBytes := len(src)
 
 	if p.stage1x4 != nil {
-		// 4:1 path: direct to output, no halfband stages.
-		return p.stage1x4.Translate(nBytes, src, 1, lsbFirst, dst, 1)
+		// 4:1 path: no halfband stages, but still process in float64.
+		outLen := nBytes * 2
+		p.buf64a = ensureLen(p.buf64a, outLen)
+		p.stage1x4.Translate(nBytes, src, 1, lsbFirst, p.buf64a, 1)
+
+		// Convert to float32 at output boundary.
+		for i := range outLen {
+			dst[i] = float32(p.buf64a[i])
+		}
+
+		return outLen
 	}
 
-	// 8:1 path: byte-level decimation produces nBytes float32 samples.
-	// Convert to float64 for halfband processing.
-	p.stage1Buf = ensureLenF32(p.stage1Buf, nBytes)
-	stage1Out := p.stage1Buf
-	p.stage1.Translate(nBytes, src, 1, lsbFirst, stage1Out, 1)
-
-	// Convert stage1 output to float64 for halfband chain.
+	// 8:1 path: byte-level decimation produces nBytes float64 samples.
 	p.buf64a = ensureLen(p.buf64a, nBytes)
-	for i, v := range stage1Out {
-		p.buf64a[i] = float64(v)
-	}
+	p.stage1.Translate(nBytes, src, 1, lsbFirst, p.buf64a, 1)
 
 	current := p.buf64a[:nBytes]
 
@@ -209,12 +215,4 @@ func ensureLen(buf []float64, n int) []float64 {
 	}
 
 	return make([]float64, n)
-}
-
-func ensureLenF32(buf []float32, n int) []float32 {
-	if cap(buf) >= n {
-		return buf[:n]
-	}
-
-	return make([]float32, n)
 }
