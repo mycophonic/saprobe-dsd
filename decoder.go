@@ -179,7 +179,7 @@ func buildDecoder(
 		readBuf:        make([]byte, chunkSize*nCh),
 		chBufs:         chBufs,
 		pcmBufs:        pcmBufs,
-		buf:            make([]byte, outSamples*nCh*bytesPerFloat32),
+		buf:            make([]byte, 0, outSamples*nCh*bytesPerFloat32),
 		deinterleaveFn: deinterleaveFn,
 	}, nil
 }
@@ -339,8 +339,9 @@ func (d *Decoder) growBuffers(newChannels, chunkSize int) {
 	// Grow interleaved read buffer.
 	d.readBuf = ensureLenBytes(d.readBuf, chunkSize*newChannels)
 
-	// Grow interleaved output buffer.
+	// Grow interleaved output buffer capacity, but start empty (no decoded data yet).
 	d.buf = ensureLenBytes(d.buf, outSamples*newChannels*bytesPerFloat32)
+	d.buf = d.buf[:0]
 }
 
 // ensureLenBytes returns buf[:n] if capacity is sufficient, otherwise a new slice.
