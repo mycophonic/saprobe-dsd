@@ -28,10 +28,11 @@ import (
 // BenchmarkPipelineAllocs measures heap allocations in the DSD-to-PCM pipeline.
 // After warmup, Process() should report 0 allocs/op.
 //
-// Run with: cd tests && go test -bench=BenchmarkPipelineAllocs -benchmem -count=5
+// Run with: cd tests && go test -bench=BenchmarkPipelineAllocs -benchmem -count=5.
 func BenchmarkPipelineAllocs(b *testing.B) {
 	// 1 second of DSD128 mono silence.
 	const dsdRate = 5644800
+
 	bytesPerCh := dsdRate / 8
 	src := make([]byte, bytesPerCh)
 
@@ -63,7 +64,7 @@ func BenchmarkPipelineAllocs(b *testing.B) {
 // BenchmarkDecodeAllocs measures heap allocations in the full streaming decode path
 // (container parse + pipeline + interleave). Matches the saprobe-alac benchmark pattern.
 //
-// Run with: BENCH_FILE=/path/to/file.dsf go test -bench=BenchmarkDecodeAllocs -benchmem -count=5
+// Run with: BENCH_FILE=/path/to/file.dsf go test -bench=BenchmarkDecodeAllocs -benchmem -count=5.
 func BenchmarkDecodeAllocs(b *testing.B) {
 	filePath := os.Getenv("BENCH_FILE")
 	if filePath == "" {
@@ -99,7 +100,7 @@ func BenchmarkDecodeAllocs(b *testing.B) {
 // for same-format files. After warmup, Reset + full decode should report 0 allocs/op
 // (excluding negligible header parsing temporaries).
 //
-// Run with: BENCH_FILE=/path/to/file.dsf go test -bench=BenchmarkResetAllocs -benchmem -count=5
+// Run with: BENCH_FILE=/path/to/file.dsf go test -bench=BenchmarkResetAllocs -benchmem -count=5.
 func BenchmarkResetAllocs(b *testing.B) {
 	filePath := os.Getenv("BENCH_FILE")
 	if filePath == "" {

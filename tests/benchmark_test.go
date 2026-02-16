@@ -212,7 +212,7 @@ func generateDSFContainer(dsdRate, channels int) []byte {
 // generateDSFContainerN creates a minimal DSF container with synthetic DSD silence data
 // for the specified duration in seconds.
 //
-//nolint:gosec // Integer conversions bounded by audio format constraints.
+
 func generateDSFContainerN(dsdRate, channels, durationSec int) []byte {
 	bytesPerCh := dsdRate / 8 * durationSec
 	blockSize := 4096
@@ -241,15 +241,15 @@ func generateDSFContainerN(dsdRate, channels, durationSec int) []byte {
 	// fmt chunk.
 	copy(buf[off:], "fmt ")
 	putLE64(buf[off+4:], uint64(fmtChunkSize))
-	putLE32(buf[off+12:], 1)                                  // format version
-	putLE32(buf[off+16:], 0)                                  // format ID (DSD raw)
-	putLE32(buf[off+20:], uint32(channels))                   // channel type (stereo=2)
-	putLE32(buf[off+24:], uint32(channels))                   // channel count
-	putLE32(buf[off+28:], uint32(dsdRate))                    // sample rate
-	putLE32(buf[off+32:], 1)                                  // bits per sample
-	putLE64(buf[off+36:], uint64(int64(bytesPerCh)*8))        // sample count per channel
-	putLE32(buf[off+44:], uint32(blockSize))                  // block size per channel
-	putLE32(buf[off+48:], 0)                                  // reserved
+	putLE32(buf[off+12:], 1)                           // format version
+	putLE32(buf[off+16:], 0)                           // format ID (DSD raw)
+	putLE32(buf[off+20:], uint32(channels))            // channel type (stereo=2)
+	putLE32(buf[off+24:], uint32(channels))            // channel count
+	putLE32(buf[off+28:], uint32(dsdRate))             // sample rate
+	putLE32(buf[off+32:], 1)                           // bits per sample
+	putLE64(buf[off+36:], uint64(int64(bytesPerCh)*8)) // sample count per channel
+	putLE32(buf[off+44:], uint32(blockSize))           // block size per channel
+	putLE32(buf[off+48:], 0)                           // reserved
 	off += fmtChunkSize
 
 	// data chunk.

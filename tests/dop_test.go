@@ -521,13 +521,13 @@ func TestDoPOutputSizeContainer32(t *testing.T) {
 		channels int
 		want     int
 	}{
-		{2, 1, 4},     // 1 frame, mono, 4 bytes
-		{2, 2, 8},     // 1 frame, stereo, 8 bytes
-		{4, 1, 8},     // 2 frames, mono
-		{4, 2, 16},    // 2 frames, stereo
+		{2, 1, 4},      // 1 frame, mono, 4 bytes
+		{2, 2, 8},      // 1 frame, stereo, 8 bytes
+		{4, 1, 8},      // 2 frames, mono
+		{4, 2, 16},     // 2 frames, stereo
 		{100, 6, 1200}, // 50 frames, 6ch
-		{1, 1, 4},     // 1 byte odd → 1 frame (padded), mono
-		{3, 1, 8},     // 3 bytes odd → 2 frames, mono
+		{1, 1, 4},      // 1 byte odd → 1 frame (padded), mono
+		{3, 1, 8},      // 3 bytes odd → 2 frames, mono
 	}
 
 	for _, tt := range tests {
@@ -549,11 +549,11 @@ func TestDoPDSDConsumed(t *testing.T) {
 		containerBytes int
 		want           int
 	}{
-		{3, 1, 0, 2},    // 1 frame 24-bit mono → 2 DSD bytes
-		{6, 2, 0, 2},    // 1 frame 24-bit stereo → 2 DSD bytes per ch
-		{4, 1, 4, 2},    // 1 frame 32-bit mono → 2 DSD bytes
-		{8, 2, 4, 2},    // 1 frame 32-bit stereo → 2 DSD bytes per ch
-		{16, 2, 4, 4},   // 2 frames 32-bit stereo → 4 DSD bytes per ch
+		{3, 1, 0, 2},      // 1 frame 24-bit mono → 2 DSD bytes
+		{6, 2, 0, 2},      // 1 frame 24-bit stereo → 2 DSD bytes per ch
+		{4, 1, 4, 2},      // 1 frame 32-bit mono → 2 DSD bytes
+		{8, 2, 4, 2},      // 1 frame 32-bit stereo → 2 DSD bytes per ch
+		{16, 2, 4, 4},     // 2 frames 32-bit stereo → 4 DSD bytes per ch
 		{3528, 2, 4, 882}, // 441 frames 32-bit stereo
 	}
 

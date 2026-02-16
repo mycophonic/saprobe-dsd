@@ -49,6 +49,7 @@ var ErrDoPInvalidInput = errors.New("dop: invalid input")
 // via DoP. Returns [ErrDoPUnsupportedRate] for DSD512 and above.
 func DoPRate(dsdRate InputRate) (int, error) {
 	// DoP PCM rate = DSD rate / 16 (each 24-bit frame carries 16 DSD bits).
+	//
 	//nolint:exhaustive // DSD512+ explicitly rejected below; unknown rates fall through to error.
 	switch dsdRate {
 	case DSD64:
