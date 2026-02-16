@@ -18,36 +18,8 @@ LICENSE_IGNORES := --ignore gotest.tools
 
 include hack/common.mk
 
-# Tests live in a separate module (tests/go.mod) to keep agar out of the
-# library go.mod. Override common.mk test targets to include both modules.
-TEST_MODULE := $(PROJECT_DIR)/tests
-
-test-unit:
-	$(call title, $@)
-	@go test $(VERBOSE_FLAG) -count 1 $(PROJECT_DIR)/...
-	@cd $(TEST_MODULE) && go test $(VERBOSE_FLAG) -count 1 ./...
-	$(call footer, $@)
-
-test-unit-bench:
-	$(call title, $@)
-	@go test $(VERBOSE_FLAG) -count 1 $(PROJECT_DIR)/... -bench=.
-	@cd $(TEST_MODULE) && go test $(VERBOSE_FLAG) -count 1 ./... -bench=.
-	$(call footer, $@)
-
+# DSD race tests need extended timeout (default 10m is insufficient).
 test-unit-race:
 	$(call title, $@)
 	@CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" -timeout 30m $(PROJECT_DIR)/... -race
-	@cd $(TEST_MODULE) && CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" -timeout 30m ./... -race
-	$(call footer, $@)
-
-lint-mod:
-	$(call title, $@)
-	@cd $(PROJECT_DIR) && go mod tidy --diff
-	@cd $(TEST_MODULE) && go mod tidy --diff
-	$(call footer, $@)
-
-fix-mod:
-	$(call title, $@)
-	@cd $(PROJECT_DIR) && go mod tidy
-	@cd $(TEST_MODULE) && go mod tidy
 	$(call footer, $@)
