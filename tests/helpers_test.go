@@ -16,63 +16,8 @@
 
 package tests_test
 
-import (
-	"testing"
-	"time"
-
-	"github.com/mycophonic/agar/pkg/agar"
-)
+import "github.com/mycophonic/agar/pkg/agar"
 
 // Benchmark infrastructure.
 
-const benchIterations = agar.DefaultBenchIterations
-
-// benchResult wraps agar.BenchResult with a string-based Format for simpler test code.
-type benchResult struct {
-	Format  string
-	Tool    string
-	Op      string
-	Median  time.Duration
-	Mean    time.Duration
-	Min     time.Duration
-	Max     time.Duration
-	Stddev  time.Duration
-	PCMSize int
-}
-
-func computeResult(format, tool, op string, durations []time.Duration, pcmSize int) benchResult {
-	r := agar.ComputeResult(agar.BenchFormat{Name: format}, tool, op, durations, pcmSize)
-
-	return benchResult{
-		Format:  format,
-		Tool:    r.Tool,
-		Op:      r.Op,
-		Median:  r.Median,
-		Mean:    r.Mean,
-		Min:     r.Min,
-		Max:     r.Max,
-		Stddev:  r.Stddev,
-		PCMSize: r.PCMSize,
-	}
-}
-
-func printResults(t *testing.T, results []benchResult) {
-	t.Helper()
-
-	agarResults := make([]agar.BenchResult, len(results))
-	for i, r := range results {
-		agarResults[i] = agar.BenchResult{
-			Format:  agar.BenchFormat{Name: r.Format},
-			Tool:    r.Tool,
-			Op:      r.Op,
-			Median:  r.Median,
-			Mean:    r.Mean,
-			Min:     r.Min,
-			Max:     r.Max,
-			Stddev:  r.Stddev,
-			PCMSize: r.PCMSize,
-		}
-	}
-
-	agar.PrintResults(t, agar.BenchOptions{Iterations: benchIterations}, agarResults)
-}
+var benchOpts = agar.BenchOptions{}.WithDefaults() //nolint:gochecknoglobals

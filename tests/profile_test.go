@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mycophonic/agar/pkg/agar"
 )
 
 // profileDuration is longer than syntheticDuration to give pprof enough samples.
@@ -35,7 +37,7 @@ func TestProfileDecode(t *testing.T) {
 		t.Skip("skipping profile in short mode")
 	}
 
-	var results []benchResult
+	var results []agar.BenchResult
 
 	for _, bf := range benchFormats {
 		t.Logf("=== %s ===", bf.Name)
@@ -44,10 +46,10 @@ func TestProfileDecode(t *testing.T) {
 
 		t.Logf("  DSF container: %.1f MB", float64(len(dsfData))/(1024*1024))
 
-		results = append(results, benchDecoderSaprobe(t, bf.Name, dsfData))
+		results = append(results, benchDecoderSaprobe(t, bf.BenchFormat, dsfData))
 	}
 
-	printResults(t, results)
+	agar.PrintResults(t, benchOpts, results)
 }
 
 // TestProfileDecodeFile runs saprobe-only decoding of a real file for clean pprof profiling.
@@ -77,9 +79,9 @@ func TestProfileDecodeFile(t *testing.T) {
 
 	t.Logf("File: %s (%.1f MB)", filePath, float64(len(encoded))/(1024*1024))
 
-	name := filepath.Base(filePath)
+	bf := agar.BenchFormat{Name: filepath.Base(filePath)}
 
-	results := []benchResult{benchFileSaprobe(t, name, encoded)}
+	results := []agar.BenchResult{benchFileSaprobe(t, bf, encoded)}
 
-	printResults(t, results)
+	agar.PrintResults(t, benchOpts, results)
 }

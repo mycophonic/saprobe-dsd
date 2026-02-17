@@ -15,11 +15,7 @@
 NAME := saprobe-dsd
 ALLOWED_LICENSES := Apache-2.0,BSD-2-Clause,BSD-3-Clause,MIT
 LICENSE_IGNORES := --ignore gotest.tools
+# DSD race tests need extended timeout (default 10m is insufficient).
+TEST_TIMEOUT := 30m
 
 include hack/common.mk
-
-# DSD race tests need extended timeout (default 10m is insufficient).
-test-unit-race:
-	$(call title, $@)
-	@CGO_ENABLED=1 go test $(VERBOSE_FLAG) -ldflags="-linkmode=external" -timeout 30m $(PROJECT_DIR)/... -race
-	$(call footer, $@)

@@ -2,6 +2,7 @@
 
 Pure Go DSD (Direct Stream Digital) decoder supporting DSF and DSDIFF (DFF) container formats
 with DSD-to-PCM conversion at all standard rate combinations.
+with DSD-to-PCM conversion at all standard rate combinations.
 
 ## Containers
 
@@ -45,10 +46,6 @@ fmt := dec.Format() // PCMFormat{SampleRate, BitDepth, Channels}
 // Reuse decoder for multiple files (zero-alloc when format matches).
 err = dec.Reset(nextReader, dsd.Rate352800)
 ```
-
-## Dependencies
-
-Zero. Pure Go, no CGO, no third-party dependencies.
 
 ## Documentation
 
