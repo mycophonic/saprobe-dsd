@@ -30,15 +30,16 @@ import (
 )
 
 type benchFormat struct {
-	Name    string
+	agar.BenchFormat
+
 	DSDRate int
 }
 
 //nolint:gochecknoglobals
 var benchFormats = []benchFormat{
-	{"DSD64", 2822400},
-	{"DSD128", 5644800},
-	{"DSD256", 11289600},
+	{agar.BenchFormat{Name: "DSD64"}, 2822400},
+	{agar.BenchFormat{Name: "DSD128"}, 5644800},
+	{agar.BenchFormat{Name: "DSD256"}, 11289600},
 }
 
 const (
@@ -60,7 +61,7 @@ func TestBenchmarkDecode(t *testing.T) {
 		t.Skip("skipping benchmark in short mode")
 	}
 
-	var results []benchResult
+	var results []agar.BenchResult
 
 	for _, bf := range benchFormats {
 		t.Logf("=== %s ===", bf.Name)
@@ -69,21 +70,21 @@ func TestBenchmarkDecode(t *testing.T) {
 
 		t.Logf("  DSF container: %.1f MB", float64(len(dsfData))/(1024*1024))
 
-		results = append(results, benchDecoderSaprobe(t, bf.Name, dsfData))
+		results = append(results, benchDecoderSaprobe(t, bf.BenchFormat, dsfData))
 	}
 
-	printResults(t, results)
+	agar.PrintResults(t, benchOpts, results)
 }
 
-func benchDecoderSaprobe(t *testing.T, name string, dsfData []byte) benchResult {
+func benchDecoderSaprobe(t *testing.T, bf agar.BenchFormat, dsfData []byte) agar.BenchResult {
 	t.Helper()
 
-	durations := make([]time.Duration, benchIterations)
+	durations := make([]time.Duration, benchOpts.Iterations)
 	outBuf := make([]byte, 64*1024)
 
 	var pcmSize int
 
-	for iter := range benchIterations {
+	for iter := range benchOpts.Iterations {
 		start := time.Now()
 
 		dec, err := dsd.NewDecoder(bytes.NewReader(dsfData), dsd.Rate352800)
@@ -106,7 +107,7 @@ func benchDecoderSaprobe(t *testing.T, name string, dsfData []byte) benchResult 
 		pcmSize = iterSize
 	}
 
-	return computeResult(name, "saprobe", "decode", durations, pcmSize)
+	return agar.ComputeResult(bf, "saprobe", "decode", durations, pcmSize)
 }
 
 // TestBenchmarkDecodeFile benchmarks DSD-to-PCM decoding using a real DSF or DFF file.
@@ -138,26 +139,26 @@ func TestBenchmarkDecodeFile(t *testing.T) {
 		t.Fatalf("read: %v", err)
 	}
 
-	name := filepath.Base(filePath)
+	bf := agar.BenchFormat{Name: filepath.Base(filePath)}
 
-	var results []benchResult
+	var results []agar.BenchResult
 
 	// Benchmark saprobe: streaming decoder.
-	results = append(results, benchFileSaprobe(t, name, encoded))
+	results = append(results, benchFileSaprobe(t, bf, encoded))
 
 	// Benchmark ffmpeg DSD->PCM.
-	results = append(results, benchFileFFmpeg(t, name, filePath))
+	results = append(results, benchFileFFmpeg(t, bf, filePath))
 
-	printResults(t, results)
+	agar.PrintResults(t, benchOpts, results)
 }
 
-func benchFileSaprobe(t *testing.T, name string, encoded []byte) benchResult {
+func benchFileSaprobe(t *testing.T, bf agar.BenchFormat, encoded []byte) agar.BenchResult {
 	t.Helper()
 
-	durations := make([]time.Duration, benchIterations)
+	durations := make([]time.Duration, benchOpts.Iterations)
 	outBuf := make([]byte, 64*1024)
 
-	for iter := range benchIterations {
+	for iter := range benchOpts.Iterations {
 		start := time.Now()
 
 		dec, err := dsd.NewDecoder(bytes.NewReader(encoded), dsd.Rate352800)
@@ -175,15 +176,15 @@ func benchFileSaprobe(t *testing.T, name string, encoded []byte) benchResult {
 		durations[iter] = time.Since(start)
 	}
 
-	return computeResult(name, "saprobe", "decode", durations, 0)
+	return agar.ComputeResult(bf, "saprobe", "decode", durations, 0)
 }
 
-func benchFileFFmpeg(t *testing.T, name, filePath string) benchResult {
+func benchFileFFmpeg(t *testing.T, bf agar.BenchFormat, filePath string) agar.BenchResult {
 	t.Helper()
 
-	durations := make([]time.Duration, benchIterations)
+	durations := make([]time.Duration, benchOpts.Iterations)
 
-	for iter := range benchIterations {
+	for iter := range benchOpts.Iterations {
 		start := time.Now()
 
 		agar.FFmpeg(t, agar.FFmpegOptions{
@@ -200,7 +201,7 @@ func benchFileFFmpeg(t *testing.T, name, filePath string) benchResult {
 		durations[iter] = time.Since(start)
 	}
 
-	return computeResult(name, "ffmpeg", "decode", durations, 0)
+	return agar.ComputeResult(bf, "ffmpeg", "decode", durations, 0)
 }
 
 // generateDSFContainer creates a minimal DSF container with synthetic DSD silence data
