@@ -91,7 +91,11 @@ func TestDecodeFile(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Errorf("close: %v", closeErr)
+		}
+	}()
 
 	t.Logf("File: %s", filePath)
 
