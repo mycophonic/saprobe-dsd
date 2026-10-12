@@ -39,9 +39,6 @@ golangci:
           linters: [gocognit]
         - path: ^internal/dsd/tables\.go$
           linters: [gocognit]
-        - path: ^tests/benchmark_test\.go$
-          linters: [gocritic]
-          text: appendCombine
           # --- end of the onboarding backlog.
 licenses:
   ignore:

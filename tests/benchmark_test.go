@@ -141,13 +141,11 @@ func TestBenchmarkDecodeFile(t *testing.T) {
 
 	bf := agar.BenchFormat{Name: filepath.Base(filePath)}
 
-	var results []agar.BenchResult
-
-	// Benchmark saprobe: streaming decoder.
-	results = append(results, benchFileSaprobe(t, bf, encoded))
-
-	// Benchmark ffmpeg DSD->PCM.
-	results = append(results, benchFileFFmpeg(t, bf, filePath))
+	// Benchmark saprobe (the streaming decoder), then ffmpeg DSD->PCM.
+	results := []agar.BenchResult{
+		benchFileSaprobe(t, bf, encoded),
+		benchFileFFmpeg(t, bf, filePath),
+	}
 
 	agar.PrintResults(t, benchOpts, results)
 }
