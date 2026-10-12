@@ -80,8 +80,6 @@ func (c *Converter4to1) Clone() *Converter4to1 {
 //   - dstStride: increment between consecutive output samples
 //
 // Returns the number of output samples produced (= samples * 2).
-//
-//revive:disable-next-line:flag-parameter // lsbFirst is inherent to DSD container format distinction.
 func (c *Converter4to1) Translate(
 	samples int,
 	src []byte, srcStride int,

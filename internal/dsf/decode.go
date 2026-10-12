@@ -88,7 +88,7 @@ func ParseHeader(reader io.ReadSeeker) (Header, error) {
 	return Header{
 		Format: dfmt.DSDFormat{
 			SampleRate:        fmtInfo.sampleRate,
-			Channels:          uint(fmtInfo.channelCount), //nolint:gosec // channelCount validated > 0
+			Channels:          uint(fmtInfo.channelCount),
 			SamplesPerChannel: fmtInfo.sampleCount,
 			BitOrder:          dfmt.LSBFirst,
 		},
@@ -108,7 +108,7 @@ func Decode(reader io.ReadSeeker) ([][]byte, dfmt.DSDFormat, error) {
 	}
 
 	fmtInfo := dsfFmt{
-		channelCount: int(hdr.Format.Channels), //nolint:gosec // channelCount validated in ParseHeader
+		channelCount: int(hdr.Format.Channels),
 		sampleRate:   hdr.Format.SampleRate,
 		sampleCount:  hdr.Format.SamplesPerChannel,
 		blockSize:    hdr.BlockSize,
@@ -205,7 +205,7 @@ func parseFmtChunk(reader io.ReadSeeker) (dsfFmt, error) {
 	return dsfFmt{
 		channelCount: int(channelCount),
 		sampleRate:   int(sampleRate),
-		sampleCount:  int64(sampleCount), //nolint:gosec // DSD file sample counts fit in int64
+		sampleCount:  int64(sampleCount), // #nosec G115 -- DSD file sample counts fit in int64
 		blockSize:    int(blockSize),
 	}, nil
 }
@@ -224,7 +224,7 @@ func parseDataChunkHeader(reader io.ReadSeeker) (int64, error) {
 
 	chunkSize := binary.LittleEndian.Uint64(header[4:12])
 
-	return int64(chunkSize - chunkHeaderSize), nil //nolint:gosec // DSF data sizes fit in int64
+	return int64(chunkSize - chunkHeaderSize), nil // #nosec G115 -- DSF data sizes fit in int64
 }
 
 // readAndDeinterleave reads the DSD data payload and de-interleaves per-channel blocks.

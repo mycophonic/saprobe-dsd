@@ -1,0 +1,14 @@
+# Project-local lychee exclusions, merged with the canonical .limen/lychee.toml
+# (limen neither pins nor checks this file — it is the project's own).
+
+exclude = [
+  # docs/RESEARCH.md cites DAC vendors and reviews. Two of them answer 403 to
+  # any unauthenticated client (bot blocking), one resets the connection, and
+  # one product page has been withdrawn; the citations stay as written, since
+  # they record what was read when the research was done. Everything else in
+  # the research notes resolves and stays checked.
+  '^https://darko\.audio/',
+  '^https://audiophilestyle\.com/',
+  '^https://www\.bricasti\.com/',
+  '^https://www\.lampizator\.com/the-pacific-dac-2$',
+]

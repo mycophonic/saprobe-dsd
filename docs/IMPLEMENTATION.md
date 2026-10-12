@@ -103,7 +103,7 @@ The −1 difference occurs only when the DSD byte count per channel is odd, caus
 
 ffmpeg's DSD-to-PCM conversion is split across three components:
 
-1. **Container demuxer** ([`dsfdec.c`](https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/dsfdec.c), [`iffdec.c`](https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/iffdec.c)): Reads DSF or DSDIFF containers. Sets `sample_rate = DSD_rate / 8`, presenting the DSD stream at its byte rate (e.g. DSD128 → 705,600 Hz).
+1. **Container demuxer** ([`dsfdec.c`](https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/dsfdec.c), [`iff.c`](https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/iff.c)): Reads DSF or DSDIFF containers. Sets `sample_rate = DSD_rate / 8`, presenting the DSD stream at its byte rate (e.g. DSD128 → 705,600 Hz).
 
 2. **DSD decoder** ([`dsddec.c`](https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/dsddec.c), [`dsd.c`](https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/dsd.c)): 8:1 decimation via the Gesemann 96-tap FIR, stored as 48 right-half coefficients ([`dsd.h`](https://github.com/FFmpeg/FFmpeg/blob/master/libavcodec/dsd.h): `HTAPS = 48`) with precomputed lookup tables. `ff_dsd2pcm_translate()` produces one float per DSD byte. No further decimation occurs inside the codec. Frame sample count is `avpkt->size / ch_count` (integer division, no padding).
 

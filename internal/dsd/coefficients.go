@@ -22,7 +22,7 @@ package dsd
 //
 // Layout: b1, b2, a1, a2 per section.
 //
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the default noise-shaping coefficients, read-only
 var DefaultNoiseShapeCoeffs = []float32{
 	// Section 1
 	-1.62666423, 0.79410094, 0.61367127, 0.23311013,

@@ -58,7 +58,7 @@ func NewRawReader(reader io.ReadSeeker) (*RawReader, error) {
 		return nil, fmt.Errorf("%w: unsupported DSD sample rate %d", ErrUnsupportedRate, dsdFmt.SampleRate)
 	}
 
-	nCh := int(dsdFmt.Channels) //nolint:gosec // channel count validated by container parser
+	nCh := int(dsdFmt.Channels)
 
 	chBufs := make([][]byte, nCh)
 	for ch := range nCh {
