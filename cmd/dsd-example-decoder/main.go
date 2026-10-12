@@ -30,10 +30,14 @@ import (
 	"os"
 
 	dsd "github.com/mycophonic/saprobe-dsd"
-	"github.com/mycophonic/saprobe-dsd/version"
 )
 
 const formatWAV = "wav"
+
+// version is the build's stamp: the shared build recipe sets it from `git describe`
+// through -X main.version; a plain `go build` leaves "dev". gochecknoglobals
+// exempts the name for this use.
+var version = "dev"
 
 // A canonical PCM WAV header: the RIFF chunk header, "WAVE", the fmt chunk
 // (header plus 16 bytes of PCM format) and the data chunk header. The RIFF
@@ -56,7 +60,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Fprintln(os.Stdout, version.String())
+		fmt.Fprintln(os.Stdout, "dsd-example-decoder", version)
 		os.Exit(0)
 	}
 
