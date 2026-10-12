@@ -40,7 +40,7 @@ func main() {
 	outputFormat := flag.String("format", formatWAV, "output format: wav or pcm")
 	outputRate := flag.Int("rate", int(dsd.Rate352800), "PCM output sample rate in Hz")
 
-	flag.Usage = func() {
+	flag.Usage = func() { //nolint:reassign // flag.Usage is the package's documented hook for a custom usage message
 		fmt.Fprintf(os.Stderr, "Usage: %s [-format wav|pcm] [-rate Hz] <input | ->\n", os.Args[0])
 		flag.PrintDefaults()
 	}
