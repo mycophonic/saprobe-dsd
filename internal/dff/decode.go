@@ -199,6 +199,8 @@ func walkTopChunks(
 }
 
 // parsePROPChunk parses the PROP chunk and its sub-chunks (FS, CHNL, CMPR).
+//
+//nolint:gocognit // the sub-chunk walk is the DSDIFF format's: one case per sub-chunk, each required one tracked
 func parsePROPChunk(reader io.ReadSeeker, contentStart, dataSize int64) (dffProps, error) {
 	// First 4 bytes of PROP content are the property type ("SND ").
 	var propType [4]byte
