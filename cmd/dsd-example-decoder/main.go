@@ -35,6 +35,14 @@ import (
 
 const formatWAV = "wav"
 
+// A canonical PCM WAV header: the RIFF chunk header, "WAVE", the fmt chunk
+// (header plus 16 bytes of PCM format) and the data chunk header. The RIFF
+// chunk size counts everything after the RIFF chunk header itself.
+const (
+	wavHeaderSize  = 44
+	riffHeaderSize = 8 // "RIFF" and the chunk size
+)
+
 func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	outputFormat := flag.String("format", formatWAV, "output format: wav or pcm")
@@ -138,12 +146,12 @@ func writeWAV(writer io.Writer, pcm []byte, pcmFmt dsd.PCMFormat) error {
 	byteRate := pcmFmt.SampleRate * blockAlign
 	dataSize := len(pcm)
 
-	var hdr [44]byte
+	var hdr [wavHeaderSize]byte
 
 	copy(hdr[0:4], "RIFF")
 	binary.LittleEndian.PutUint32(
 		hdr[4:8],
-		uint32(36+dataSize),
+		uint32(wavHeaderSize-riffHeaderSize+dataSize),
 	) // #nosec G115 -- bounded by the audio format constraints
 	copy(hdr[8:12], "WAVE")
 
