@@ -1,0 +1,52 @@
+# saprobe-dsd's carve-outs from the Go lint baseline (.limen/lint-go.yaml),
+# rendered with it by `just do lint go` (limen's book/linting-go.md,
+# "one baseline, per-project carve-outs").
+golangci:
+  linters:
+    settings:
+      depguard:
+        rules:
+          main:
+            allow:
+              # The decoder's dependencies, each one a reviewed choice.
+              - github.com/mycophonic/agar # tests: ffmpeg as the reference decoder, defective audio
+    exclusions:
+      rules:
+        # Tests are black-box consumers: the rules about API hygiene and
+        # production robustness do not apply to them, the rules about
+        # correctness do (errcheck stays on).
+        - path: _test\.go
+          linters:
+            - dupl # test cases are meant to look alike
+            - dupword # test data
+            - err113 # dynamic errors are fine in fixtures
+            - dogsled # multiple-return helpers are exercised for one value at a time
+            - noctx # no cancellation to propagate
+            - perfsprint # readability over allocations
+            - mnd # fixture values
+
+        # --- ONBOARDING BACKLOG (book/mandatory-files.md, "Onboarding an
+        # existing repository"). Findings the baseline raised on enrolment and
+        # nobody has read yet: not decisions, exemptions to be emptied, one
+        # linter or one package per alignment pull request, each finding then
+        # fixed, silenced inline with its reason, or raised as a rule. The last
+        # alignment pull request deletes this block.
+        - path: ^cmd/dsd-example-decoder/main\.go$
+          linters: [mnd, reassign]
+        - path: ^internal/dff/decode\.go$
+          linters: [gocognit]
+        - path: ^internal/dsd/dop\.go$
+          linters: [gocognit]
+        - path: ^internal/dsd/tables\.go$
+          linters: [gocognit]
+        - path: ^tests/benchmark_test\.go$
+          linters: [gocritic]
+          text: appendCombine
+        - path: ^tests/decode_test\.go$
+          linters: [errcheck]
+          # --- end of the onboarding backlog.
+licenses:
+  ignore:
+    # go-licenses cannot resolve the LICENSE of the gotest.tools/v3
+    # submodule (google/go-licenses#186).
+    - gotest.tools/v3
