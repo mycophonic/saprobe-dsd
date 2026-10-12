@@ -35,7 +35,7 @@ type benchFormat struct {
 	DSDRate int
 }
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the benchmark matrix, read-only test data
 var benchFormats = []benchFormat{
 	{agar.BenchFormat{Name: "DSD64"}, 2822400},
 	{agar.BenchFormat{Name: "DSD128"}, 5644800},

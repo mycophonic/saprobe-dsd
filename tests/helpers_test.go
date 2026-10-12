@@ -20,4 +20,4 @@ import "github.com/mycophonic/agar/pkg/agar"
 
 // Benchmark infrastructure.
 
-var benchOpts = agar.BenchOptions{}.WithDefaults() //nolint:gochecknoglobals
+var benchOpts = agar.BenchOptions{}.WithDefaults() //nolint:gochecknoglobals // shared benchmark options, read-only

@@ -96,7 +96,7 @@ func ParseHeader(reader io.ReadSeeker) (Header, error) {
 	return Header{
 		Format: dfmt.DSDFormat{
 			SampleRate:        props.sampleRate,
-			Channels:          uint(props.channelCount), //nolint:gosec // channelCount validated > 0 in PROP
+			Channels:          uint(props.channelCount),
 			SamplesPerChannel: dsdDataSize / int64(props.channelCount) * bitsPerByte,
 			BitOrder:          dfmt.MSBFirst,
 		},
@@ -121,7 +121,7 @@ func Decode(reader io.ReadSeeker) ([][]byte, dfmt.DSDFormat, error) {
 		return nil, dfmt.DSDFormat{}, fmt.Errorf("%w: reading DSD data: %w", ErrInvalidChunk, err)
 	}
 
-	channels := deinterleave(data, int(hdr.Format.Channels)) //nolint:gosec // channelCount validated in ParseHeader
+	channels := deinterleave(data, int(hdr.Format.Channels))
 
 	return channels, hdr.Format, nil
 }
@@ -146,7 +146,7 @@ func parseFRM8Header(reader io.ReadSeeker) (int64, error) {
 
 	// dataSize covers everything after the ID+size fields (bytes 0-11),
 	// so the form data starts at offset 12 and ends at 12 + dataSize.
-	return int64(dataSize) + chunkHeaderSize, nil //nolint:gosec // DSDIFF sizes fit in int64
+	return int64(dataSize) + chunkHeaderSize, nil // #nosec G115 -- DSDIFF sizes fit in int64
 }
 
 // walkTopChunks iterates over the top-level chunks inside the FRM8 form,
@@ -365,7 +365,7 @@ func readChunkHeader(reader io.ReadSeeker, pos int64) (string, int64, error) {
 	}
 
 	chunkID := string(buf[:4])
-	dataSize := int64(binary.BigEndian.Uint64(buf[4:12])) //nolint:gosec // DSDIFF sizes fit in int64
+	dataSize := int64(binary.BigEndian.Uint64(buf[4:12])) // #nosec G115 -- DSDIFF sizes fit in int64
 
 	return chunkID, dataSize, nil
 }

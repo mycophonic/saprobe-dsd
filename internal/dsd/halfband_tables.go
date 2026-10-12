@@ -22,7 +22,7 @@ package dsd
 // halfbandTaps holds the right half (including center tap) of a symmetric
 // halfband 2:1 decimation filter (127 taps total).
 //
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the filter taps, read-only
 var halfbandTaps = [...]float64{
 	4.76798079994008583e-01,
 	3.17161185144030799e-01,
@@ -93,7 +93,7 @@ var halfbandTaps = [...]float64{
 // fir4to1Taps holds the right half (including center tap) of a symmetric
 // 4:1 decimation FIR filter (63 taps total) for DSD64 to 705.6 kHz.
 //
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the filter taps, read-only
 var fir4to1Taps = [...]float64{
 	1.25692530900864824e-01,
 	1.21961221742148615e-01,

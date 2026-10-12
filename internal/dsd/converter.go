@@ -66,8 +66,6 @@ func (c *Converter) Clone() *Converter {
 //   - lsbFirst: true if least-significant bit is first in each octet
 //   - dst: output PCM samples (float64, nominally in [-1, +1])
 //   - dstStride: increment between consecutive output samples for this channel
-//
-//revive:disable-next-line:flag-parameter // lsbFirst is inherent to DSD container format distinction.
 func (c *Converter) Translate(
 	samples int,
 	src []byte, srcStride int,

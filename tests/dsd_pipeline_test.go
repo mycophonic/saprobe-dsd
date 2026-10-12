@@ -28,7 +28,7 @@ import (
 
 // DSD rate / output rate combinations for the full 30-combination matrix.
 //
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the test matrix, read-only test data
 var (
 	dsdRates = []intdsd.InputRate{
 		intdsd.DSD64,

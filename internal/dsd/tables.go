@@ -33,7 +33,7 @@ const (
 //   - downsampling by factor 8 gives practically alias-free spectrum below 70 kHz
 //   - stopband rejection is about 160 dB
 //
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the filter taps, read-only
 var htaps = [htapsCount]float64{
 	0.09950731974056658,
 	0.09562845727714668,
@@ -85,7 +85,7 @@ var htaps = [htapsCount]float64{
 	3.130441005359396e-08,
 }
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // the lookup tables, filled once (tablesOnce)
 var (
 	ctables    [ctablesLen][256]float64
 	bitReverse [256]byte

@@ -139,7 +139,7 @@ func buildDecoder(
 		return nil, fmt.Errorf("%w: unsupported DSD sample rate %d", ErrUnsupportedRate, dsdFmt.SampleRate)
 	}
 
-	nCh := int(dsdFmt.Channels) //nolint:gosec // channel count validated by container parser
+	nCh := int(dsdFmt.Channels)
 
 	// Create one pipeline per channel.
 	pipelines := make([]*intdsd.Pipeline, nCh)
@@ -191,7 +191,7 @@ func (d *Decoder) Format() PCMFormat {
 
 // Read decodes DSD data and writes interleaved float32 little-endian PCM bytes
 // to p. It implements [io.Reader].
-func (d *Decoder) Read(p []byte) (int, error) { //nolint:varnamelen // p is idiomatic for io.Reader.Read
+func (d *Decoder) Read(p []byte) (int, error) {
 	total := 0
 
 	for len(p) > 0 {
@@ -246,7 +246,7 @@ func (d *Decoder) Reset(reader io.ReadSeeker, outputRate OutputRate) error {
 		return fmt.Errorf("%w: unsupported DSD sample rate %d", ErrUnsupportedRate, dsdFmt.SampleRate)
 	}
 
-	newChannels := int(dsdFmt.Channels) //nolint:gosec // channel count validated by container parser
+	newChannels := int(dsdFmt.Channels)
 
 	if err := d.resetPipelines(inputRate, outputRate, newChannels); err != nil {
 		return err
