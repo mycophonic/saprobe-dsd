@@ -151,6 +151,8 @@ func effectiveContainerBytes(containerBytes int) int {
 //
 // dst must be at least [OutputSize](len(channels[0]), len(channels), containerBytes) bytes.
 // Returns the number of bytes written to dst.
+//
+//nolint:gocognit // the packing is the DoP specification's: per frame, per channel, bit order, pad and marker; a hot path
 func (e *DoPEncoder) Encode(channels [][]byte, dst []byte) (int, error) {
 	if len(channels) == 0 {
 		return 0, fmt.Errorf("%w: no channels", ErrDoPInvalidInput)

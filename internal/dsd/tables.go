@@ -94,6 +94,8 @@ var (
 
 // initTables precomputes the lookup tables and bit reversal array.
 // Thread-safe via sync.Once.
+//
+//nolint:gocognit // the nesting is the tables' shape (table, entry, bit), computed once under the Once
 func initTables() {
 	tablesOnce.Do(func() {
 		// Compute bit reversal table.
