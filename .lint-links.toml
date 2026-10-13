@@ -11,4 +11,15 @@ exclude = [
   '^https://audiophilestyle\.com/',
   '^https://www\.bricasti\.com/',
   '^https://www\.lampizator\.com/the-pacific-dac-2$',
+  # Storefronts that rate-limit: each answered 429 once the lane ran from
+  # several pull requests within minutes. A link checker has no business
+  # being throttled by a shop, and the shop has no business being hit by one;
+  # the product pages stay as citations, unchecked.
+  '^https://almaaudio\.com/',
+  '^https://emmlabs-meitner\.com/',
+  '^https://kitsunehifi\.com/',
+  '^https://playbackdistribution\.com/',
+  '^https://www\.moon-audio\.com/',
+  '^https://www\.paragonsns\.com/',
+  '^https://www\.psaudio\.com/',
 ]
