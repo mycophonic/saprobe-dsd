@@ -31,8 +31,6 @@ golangci:
         # linter or one package per alignment pull request, each finding then
         # fixed, silenced inline with its reason, or raised as a rule. The last
         # alignment pull request deletes this block.
-        - path: ^cmd/dsd-example-decoder/main\.go$
-          linters: [mnd]
         - path: ^internal/dff/decode\.go$
           linters: [gocognit]
         - path: ^internal/dsd/dop\.go$
