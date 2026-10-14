@@ -22,4 +22,5 @@ exclude = [
   '^https://www\.moon-audio\.com/',
   '^https://www\.paragonsns\.com/',
   '^https://www\.psaudio\.com/',
+  '^https://choiceaudio\.com/',
 ]
