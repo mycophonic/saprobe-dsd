@@ -2,18 +2,18 @@
 
 ## Float WAV output not played by all DACs
 
-The example decoder (`dsd-example-decoder`) writes IEEE float32 WAV files (format tag 3).
+The example decoder (`examples/decoder`) writes IEEE float32 WAV files (format tag 3).
 Some DACs do not output sound when receiving float format, particularly in exclusive/bitperfect mode.
 
 ### Reproduction
 
 ```bash
 # Decode at 352800 Hz (default) — plays fine:
-./bin/dsd-example-decoder "file.dsf" > test.wav
+./build/decoder "file.dsf" > test.wav
 # mpv output: AO: [coreaudio_exclusive] 352800Hz stereo 2ch s32
 
 # Decode at 44100 Hz — no audible output through DAC:
-./bin/dsd-example-decoder --rate 44100 "file.dsf" > test2.wav
+./build/decoder --rate 44100 "file.dsf" > test2.wav
 # mpv output:
 #   AO: [coreaudio_exclusive] 44100Hz stereo 2ch float
 #   [ao/coreaudio_exclusive] Stream format changed! Reloading.
