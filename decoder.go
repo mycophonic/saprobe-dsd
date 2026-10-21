@@ -279,35 +279,50 @@ func (d *Decoder) resetPipelines(
 	newChannels int,
 ) error {
 	if d.pipelines[0].DSDRate() == inputRate && d.pipelines[0].PCMRate() == outputRate {
-		// Reuse existing pipelines, just clear audio state.
-		for channel := range min(len(d.pipelines), newChannels) {
-			d.pipelines[channel].Reset()
-		}
-
-		// Grow pipeline slice if channels increased.
-		for channel := len(d.pipelines); channel < newChannels; channel++ {
-			cloned := d.pipelines[0].Clone()
-			cloned.Reset()
-			d.pipelines = append(d.pipelines, cloned)
-		}
-	} else {
-		// Topology changed — rebuild all pipelines.
-		for channel := range newChannels {
-			pipe, err := intdsd.NewPipeline(inputRate, outputRate)
-			if err != nil {
-				return fmt.Errorf("%w: %w", ErrUnsupportedRate, err)
-			}
-
-			if channel < len(d.pipelines) {
-				d.pipelines[channel] = pipe
-			} else {
-				d.pipelines = append(d.pipelines, pipe)
-			}
-		}
+		d.reusePipelines(newChannels)
+	} else if err := d.rebuildPipelines(inputRate, outputRate, newChannels); err != nil {
+		return err
 	}
 
 	// Trim slice length (but keep capacity for future growth).
 	d.pipelines = d.pipelines[:newChannels]
+
+	return nil
+}
+
+// reusePipelines clears the audio state of the existing pipelines, cloning
+// the first one for any channel beyond the current count.
+func (d *Decoder) reusePipelines(newChannels int) {
+	for channel := range min(len(d.pipelines), newChannels) {
+		d.pipelines[channel].Reset()
+	}
+
+	// Grow pipeline slice if channels increased.
+	for channel := len(d.pipelines); channel < newChannels; channel++ {
+		cloned := d.pipelines[0].Clone()
+		cloned.Reset()
+		d.pipelines = append(d.pipelines, cloned)
+	}
+}
+
+// rebuildPipelines replaces every pipeline for a changed topology.
+func (d *Decoder) rebuildPipelines(
+	inputRate InputRate,
+	outputRate OutputRate,
+	newChannels int,
+) error {
+	for channel := range newChannels {
+		pipe, err := intdsd.NewPipeline(inputRate, outputRate)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrUnsupportedRate, err)
+		}
+
+		if channel < len(d.pipelines) {
+			d.pipelines[channel] = pipe
+		} else {
+			d.pipelines = append(d.pipelines, pipe)
+		}
+	}
 
 	return nil
 }
