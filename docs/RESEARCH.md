@@ -108,7 +108,7 @@ compatibility with the best DACs available.
 | **DAC Chip** | Dual architecture: 4x 32-bit Sigma-Delta D/A converters per channel (PCM path) + T+A True 1-Bit converter (DSD path) |
 | **Notes** | Two entirely different digital pathways for PCM vs DSD. Four selectable digital filters. DSD512/DSD1024 require specific OS drivers. |
 
-**Sources:** [T+A Official](https://www.ta-hifi.de/en/audiosystems/hv-series/sdv-3100-reference-streaming-dac-preamp/), [The Absolute Sound](https://www.theabsolutesound.com/articles/theory-application-elektroakustik-sdv-3100-hv-dacpreamplifier-and-pdt-3100-hv-cdsacd-transport/)
+**Sources:** [T+A Official (archived 2026-03-13)](https://web.archive.org/web/20260313110339/https://www.ta-hifi.de/en/audiosystems/hv-series/sdv-3100-reference-streaming-dac-preamp/), [The Absolute Sound](https://www.theabsolutesound.com/articles/theory-application-elektroakustik-sdv-3100-hv-dacpreamplifier-and-pdt-3100-hv-cdsacd-transport/)
 
 ---
 
@@ -244,7 +244,7 @@ compatibility with the best DACs available.
 | **DAC Chip** | Proprietary twin FPGA (no off-the-shelf DAC chip) |
 | **Notes** | All inputs internally upsampled to 50-bit at 11.2896 MHz, then converted to 1-bit DSD at 11.2896 MHz. Pure DSD conversion architecture. |
 
-**Sources:** [PS Audio](https://www.psaudio.com/products/directstream-dac-mk2), [Stereophile](https://www.stereophile.com/content/ps-audio-perfectwave-directstream-mk2-da-processor)
+**Sources:** [PS Audio](https://www.psaudio.com/products/directstream-dac-mk2), [Stereophile (archived 2026-09-28)](https://web.archive.org/web/20260928071743/https://www.stereophile.com/content/ps-audio-perfectwave-directstream-mk2-da-processor)
 
 ---
 
