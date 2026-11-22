@@ -11,6 +11,9 @@ exclude = [
   '^https://audiophilestyle\.com/',
   '^https://www\.bricasti\.com/',
   '^https://www\.lampizator\.com/the-pacific-dac-2$',
+  # Answers 403 with a bot-verification page to any client that does not
+  # complete it, a browser included; the reviews cited stay as written.
+  '^https://www\.stereophile\.com/',
   # Storefronts that rate-limit: each answered 429 once the lane ran from
   # several pull requests within minutes. A link checker has no business
   # being throttled by a shop, and the shop has no business being hit by one;
